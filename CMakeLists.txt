@@ -19,17 +19,21 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # for clang-tidy
 
 add_subdirectory(third_party/tl)
 
+add_executable(cel2clx
+  src/cel2clx_main.cpp
+  src/cel2clx.cpp
+)
+add_executable(cl22clx
+  src/cl22clx_main.cpp
+  src/cl22clx.cpp
+)
 add_executable(pcx2clx
   src/pcx2clx_main.cpp
   src/pcx2clx.cpp
   src/pcx.cpp
 )
-add_executable(cel2clx
-  src/cel2clx_main.cpp
-  src/cel2clx.cpp
-)
 
-foreach(_target pcx2clx cel2clx)
+foreach(_target cel2clx cl22clx pcx2clx)
   target_include_directories(${_target} PRIVATE src)
   target_link_libraries(${_target} PRIVATE tl)
 
