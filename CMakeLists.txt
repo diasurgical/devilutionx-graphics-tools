@@ -5,8 +5,9 @@ project(DevilutionxTools VERSION 0.0.1 LANGUAGES C CXX)
 option(ASAN "Enable address sanitizer" ON)
 option(UBSAN "Enable undefined behaviour sanitizer" ON)
 
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+
 if(CMAKE_BUILD_TYPE MATCHES "Release")
-  set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
   set(ASAN OFF)
   set(UBSAN OFF)
 endif()
@@ -23,10 +24,15 @@ add_executable(pcx2clx
   src/pcx2clx.cpp
   src/pcx.cpp
 )
-target_include_directories(pcx2clx PRIVATE src)
-target_link_libraries(pcx2clx PRIVATE tl)
+add_executable(cel2clx
+  src/cel2clx_main.cpp
+  src/cel2clx.cpp
+)
 
-foreach(_target pcx2clx)
+foreach(_target pcx2clx cel2clx)
+  target_include_directories(${_target} PRIVATE src)
+  target_link_libraries(${_target} PRIVATE tl)
+
   if(ASAN)
     target_compile_options(${_target} PUBLIC -fsanitize=address -fsanitize-recover=address)
     target_link_libraries(${_target} PUBLIC -fsanitize=address -fsanitize-recover=address)
