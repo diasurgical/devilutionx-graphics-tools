@@ -20,7 +20,7 @@ Converts PCX sprite(s) to a CLX file.
 
 Options:
   --output-dir <arg>           Output directory. Default: input file directory.
-  --transparent-color <arg>    Transparent color index. Default: 1.
+  --transparent-color <arg>    Transparent color index. Default: none.
   --num-sprites <arg>          The number of vertically-stacked sprites. Default: 1.
   -q, --quiet                  Do not log anything.
 )";
