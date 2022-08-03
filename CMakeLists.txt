@@ -33,6 +33,11 @@ add_executable(pcx2clx
   src/pcx.cpp
 )
 
+install(
+  TARGETS cel2clx cl22clx pcx2clx
+  CONFIGURATIONS Release
+)
+
 foreach(_target cel2clx cl22clx pcx2clx)
   target_include_directories(${_target} PRIVATE src)
   target_link_libraries(${_target} PRIVATE tl)

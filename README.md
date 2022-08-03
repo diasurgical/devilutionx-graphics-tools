@@ -1,5 +1,13 @@
 # DevilutionX Graphics Tools
 
+## Build & install
+
+```bash
+cmake -S. -Bbuild-rel -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build-rel -j $(getconf _NPROCESSORS_ONLN)
+sudo cmake --install build-rel
+```
+
 ## cel2clx
 
 Converts CEL files to CLX. Run `pcx2clx --help` for more information.
