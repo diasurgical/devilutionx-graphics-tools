@@ -21,6 +21,7 @@ Converts CEL sprite(s) to a CLX file.
 Options:
   --output-dir <arg>           Output directory. Default: input file directory.
   --width <arg>[,<arg>...]     CEL sprite frame width(s), comma-separated.
+  --remove                     Remove the input files.
   -q, --quiet                  Do not log anything.
 )";
 
@@ -28,6 +29,7 @@ struct Options {
 	std::vector<const char *> inputPaths;
 	std::optional<std::string_view> outputDir;
 	std::vector<uint16_t> widths;
+	bool remove = false;
 	bool quiet = false;
 };
 
@@ -60,6 +62,8 @@ tl::expected<Options, ArgumentError> ParseArguments(int argc, char *argv[])
 			if (!value.has_value())
 				return tl::unexpected { std::move(value).error() };
 			options.widths = *std::move(value);
+		} else if (arg == "--remove") {
+			options.remove = true;
 		} else if (arg == "-q" || arg == "--quiet") {
 			options.quiet = true;
 		} else if (arg.empty() || arg[0] == '-') {
@@ -90,13 +94,17 @@ std::optional<IoError> Run(const Options &options)
 		if (outputDirFs.has_value()) {
 			outputPath = *outputDirFs / inputPathFs.filename().replace_extension("clx");
 		} else {
-			outputPath = inputPathFs.replace_extension("clx");
+			outputPath = std::filesystem::path(inputPathFs).replace_extension("clx");
 		}
 		uintmax_t inputFileSize;
 		uintmax_t outputFileSize;
 		if (std::optional<devilution::IoError> error = CelToClx(inputPath, outputPath.c_str(), options.widths, inputFileSize, outputFileSize);
 		    error.has_value()) {
+			error->message.append(": ").append(inputPath);
 			return error;
+		}
+		if (options.remove) {
+			std::filesystem::remove(inputPathFs);
 		}
 		if (!options.quiet) {
 			std::clog << inputPathFs.stem().c_str() << "\t" << inputFileSize << "\t"
