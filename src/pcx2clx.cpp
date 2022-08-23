@@ -1,5 +1,6 @@
 #include "pcx2clx.hpp"
 
+#include <array>
 #include <cassert>
 #include <cerrno>
 #include <cstring>
@@ -93,6 +94,7 @@ void AppendCl2PixelsOrFillRun(const uint8_t *src, unsigned length,
 std::optional<IoError> PcxToClx(const char *inputPath, const char *outputPath,
     int numFramesOrFrameHeight,
     std::optional<uint8_t> transparentColor,
+    bool exportPalette,
     uintmax_t &inputFileSize,
     uintmax_t &outputFileSize)
 {
@@ -102,11 +104,6 @@ std::optional<IoError> PcxToClx(const char *inputPath, const char *outputPath,
 		return IoError { std::string("Failed to open input file: ")
 			                 .append(std::strerror(errno)) };
 
-	std::ofstream output;
-	output.open(outputPath, std::ios::out | std::ios::binary);
-	if (output.fail())
-		return IoError { std::string("Failed to open output file: ")
-			                 .append(std::strerror(errno)) };
 	int width;
 	int height;
 	uint8_t bpp;
@@ -230,11 +227,44 @@ std::optional<IoError> PcxToClx(const char *inputPath, const char *outputPath,
 	    static_cast<uint32_t>(cl2Data.size()));
 
 	outputFileSize = cl2Data.size();
-	output.write(reinterpret_cast<const char *>(cl2Data.data()), static_cast<std::streamsize>(cl2Data.size()));
-	output.close();
-	if (output.fail())
-		return IoError { std::string("Failed to write to output file: ")
-			                 .append(std::strerror(errno)) };
+
+	if (exportPalette) {
+		constexpr unsigned PcxPaletteSeparator = 0x0C;
+		if (*dataPtr++ != PcxPaletteSeparator)
+			return IoError { std::string("PCX has no palette") };
+
+		std::array<uint8_t, 256 * 3> outPalette;
+		uint8_t *out = &outPalette[0];
+		for (unsigned i = 0; i < 256; ++i) {
+			*out++ = *dataPtr++;
+			*out++ = *dataPtr++;
+			*out++ = *dataPtr++;
+		}
+
+		std::ofstream output;
+		output.open(std::filesystem::path(outputPath).replace_extension("pal").c_str(), std::ios::out | std::ios::binary);
+		if (output.fail())
+			return IoError { std::string("Failed to open palette output file: ")
+				                 .append(std::strerror(errno)) };
+		output.write(reinterpret_cast<const char *>(outPalette.data()), static_cast<std::streamsize>(outPalette.size()));
+		output.close();
+		if (output.fail())
+			return IoError { std::string("Failed to write to palette output file: ")
+				                 .append(std::strerror(errno)) };
+	}
+
+	{
+		std::ofstream output;
+		output.open(outputPath, std::ios::out | std::ios::binary);
+		if (output.fail())
+			return IoError { std::string("Failed to open output file: ")
+				                 .append(std::strerror(errno)) };
+		output.write(reinterpret_cast<const char *>(cl2Data.data()), static_cast<std::streamsize>(cl2Data.size()));
+		output.close();
+		if (output.fail())
+			return IoError { std::string("Failed to write to output file: ")
+				                 .append(std::strerror(errno)) };
+	}
 
 	return std::nullopt;
 }

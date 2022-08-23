@@ -22,6 +22,7 @@ Options:
   --output-dir <arg>           Output directory. Default: input file directory.
   --transparent-color <arg>    Transparent color index. Default: none.
   --num-sprites <arg>          The number of vertically-stacked sprites. Default: 1.
+  --export-palette             Export the palette as a .pal file.
   --remove                     Remove the input files.
   -q, --quiet                  Do not log anything.
 )";
@@ -31,6 +32,7 @@ struct Options {
 	std::optional<std::string_view> outputDir;
 	uint16_t numSprites = 1;
 	std::optional<uint8_t> transparentColor;
+	bool exportPalette = false;
 	bool remove = false;
 	bool quiet = false;
 };
@@ -69,6 +71,8 @@ tl::expected<Options, ArgumentError> ParseArguments(int argc, char *argv[])
 			if (!value.has_value())
 				return tl::unexpected { std::move(value).error() };
 			options.transparentColor = *value;
+		} else if (arg == "--export-palette") {
+			options.exportPalette = true;
 		} else if (arg == "--remove") {
 			options.remove = true;
 		} else if (arg == "-q" || arg == "--quiet") {
@@ -106,7 +110,7 @@ std::optional<IoError> Run(const Options &options)
 		uintmax_t inputFileSize;
 		uintmax_t outputFileSize;
 		if (std::optional<devilution::IoError> error = PcxToClx(inputPath, outputPath.c_str(), options.numSprites,
-		        options.transparentColor, inputFileSize, outputFileSize);
+		        options.transparentColor, options.exportPalette, inputFileSize, outputFileSize);
 		    error.has_value()) {
 			error->message.append(": ").append(inputPath);
 			return error;
