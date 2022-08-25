@@ -7,7 +7,7 @@
 
 #include "tl/expected.hpp"
 
-namespace devilution {
+namespace dvl_gfx {
 
 struct ArgumentError {
 	std::string_view arg;
@@ -114,4 +114,4 @@ ParsePositionalArguments(ArgumentParserState &state, std::string_view listName,
 	return std::nullopt;
 }
 
-} // namespace devilution
+} // namespace dvl_gfx

@@ -6,21 +6,22 @@
 #include <utility>
 #include <vector>
 
+#include <cl22clx.hpp>
+#include <dvl_gfx_common.hpp>
+
 #include "argument_parser.hpp"
-#include "cel2clx.hpp"
-#include "io_error.hpp"
 #include "tl/expected.hpp"
 
-namespace devilution {
+namespace dvl_gfx {
 namespace {
 
-constexpr char KHelp[] = R"(Usage: cel2clx [options] files...
+constexpr char KHelp[] = R"(Usage: cl22clx [options] files...
 
-Converts CEL sprite(s) to a CLX file.
+Converts CL2 sprite(s) to a CLX file.
 
 Options:
   --output-dir <arg>           Output directory. Default: input file directory.
-  --width <arg>[,<arg>...]     CEL sprite frame width(s), comma-separated.
+  --width <arg>[,<arg>...]     CL2 sprite frame width(s), comma-separated.
   --remove                     Remove the input files.
   -q, --quiet                  Do not log anything.
 )";
@@ -81,10 +82,6 @@ tl::expected<Options, ArgumentError> ParseArguments(int argc, char *argv[])
 
 std::optional<IoError> Run(const Options &options)
 {
-	if (!options.quiet) {
-		std::clog << "file\tCEL\tCLX" << std::endl;
-	}
-
 	std::optional<std::filesystem::path> outputDirFs;
 	if (options.outputDir.has_value())
 		outputDirFs = *options.outputDir;
@@ -98,7 +95,7 @@ std::optional<IoError> Run(const Options &options)
 		}
 		uintmax_t inputFileSize;
 		uintmax_t outputFileSize;
-		if (std::optional<devilution::IoError> error = CelToClx(inputPath, outputPath.c_str(), options.widths, inputFileSize, outputFileSize);
+		if (std::optional<dvl_gfx::IoError> error = Cl2ToClx(inputPath, outputPath.c_str(), options.widths);
 		    error.has_value()) {
 			error->message.append(": ").append(inputPath);
 			return error;
@@ -106,26 +103,22 @@ std::optional<IoError> Run(const Options &options)
 		if (options.remove) {
 			std::filesystem::remove(inputPathFs);
 		}
-		if (!options.quiet) {
-			std::clog << inputPathFs.stem().c_str() << "\t" << inputFileSize << "\t"
-			          << outputFileSize << std::endl;
-		}
 	}
 	return std::nullopt;
 }
 
 } // namespace
-} // namespace devilution
+} // namespace dvl_gfx
 
 int main(int argc, char *argv[])
 {
-	tl::expected<devilution::Options, devilution::ArgumentError> options = devilution::ParseArguments(argc, argv);
+	tl::expected<dvl_gfx::Options, dvl_gfx::ArgumentError> options = dvl_gfx::ParseArguments(argc, argv);
 	if (!options) {
 		std::cerr << options.error().arg << ": " << options.error().error
 		          << std::endl;
 		return 64;
 	}
-	if (std::optional<devilution::IoError> error = Run(*options);
+	if (std::optional<dvl_gfx::IoError> error = Run(*options);
 	    error.has_value()) {
 		std::cerr << error->message << std::endl;
 		return 1;

@@ -5,7 +5,7 @@
 
 #include "endian.hpp"
 
-namespace devilution {
+namespace dvl_gfx {
 
 std::optional<IoError> LoadPcxMeta(std::ifstream &file, int &width, int &height, uint8_t &bpp)
 {
@@ -21,4 +21,4 @@ std::optional<IoError> LoadPcxMeta(std::ifstream &file, int &width, int &height,
 	return std::nullopt;
 }
 
-} // namespace devilution
+} // namespace dvl_gfx

@@ -6,12 +6,13 @@
 #include <utility>
 #include <vector>
 
+#include <dvl_gfx_common.hpp>
+#include <pcx2clx.hpp>
+
 #include "argument_parser.hpp"
-#include "io_error.hpp"
-#include "pcx2clx.hpp"
 #include "tl/expected.hpp"
 
-namespace devilution {
+namespace dvl_gfx {
 namespace {
 
 constexpr char KHelp[] = R"(Usage: pcx2clx [options] files...
@@ -109,8 +110,8 @@ std::optional<IoError> Run(const Options &options)
 		}
 		uintmax_t inputFileSize;
 		uintmax_t outputFileSize;
-		if (std::optional<devilution::IoError> error = PcxToClx(inputPath, outputPath.c_str(), options.numSprites,
-		        options.transparentColor, options.exportPalette, inputFileSize, outputFileSize);
+		if (std::optional<dvl_gfx::IoError> error = PcxToClx(inputPath, outputPath.c_str(), options.numSprites,
+		        options.transparentColor, options.exportPalette, &inputFileSize, &outputFileSize);
 		    error.has_value()) {
 			error->message.append(": ").append(inputPath);
 			return error;
@@ -127,17 +128,17 @@ std::optional<IoError> Run(const Options &options)
 }
 
 } // namespace
-} // namespace devilution
+} // namespace dvl_gfx
 
 int main(int argc, char *argv[])
 {
-	tl::expected<devilution::Options, devilution::ArgumentError> options = devilution::ParseArguments(argc, argv);
+	tl::expected<dvl_gfx::Options, dvl_gfx::ArgumentError> options = dvl_gfx::ParseArguments(argc, argv);
 	if (!options) {
 		std::cerr << options.error().arg << ": " << options.error().error
 		          << std::endl;
 		return 64;
 	}
-	if (std::optional<devilution::IoError> error = Run(*options);
+	if (std::optional<dvl_gfx::IoError> error = Run(*options);
 	    error.has_value()) {
 		std::cerr << error->message << std::endl;
 		return 1;

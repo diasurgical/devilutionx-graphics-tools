@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <cstring>
 
-namespace devilution {
+namespace dvl_gfx {
 
 template <typename T>
 constexpr uint16_t LoadLE16(const T *b)
@@ -59,4 +59,4 @@ inline void WriteLE32(void *out, uint32_t val)
 	memcpy(out, &val, 4);
 }
 
-} // namespace devilution
+} // namespace dvl_gfx

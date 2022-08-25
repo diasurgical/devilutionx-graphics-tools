@@ -1,4 +1,4 @@
-#include "cl22clx.hpp"
+#include <cl22clx.hpp>
 
 #include <cassert>
 #include <cerrno>
@@ -10,7 +10,7 @@
 
 #include "endian.hpp"
 
-namespace devilution {
+namespace dvl_gfx {
 
 namespace {
 
@@ -133,4 +133,4 @@ std::optional<IoError> Cl2ToClx(const char *inputPath, const char *outputPath,
 	return std::nullopt;
 }
 
-} // namespace devilution
+} // namespace dvl_gfx

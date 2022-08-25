@@ -5,9 +5,9 @@
 #include <fstream>
 #include <optional>
 
-#include "io_error.hpp"
+#include <dvl_gfx_common.hpp>
 
-namespace devilution {
+namespace dvl_gfx {
 
 struct PCXHeader {
 	uint8_t manufacturer;
@@ -34,4 +34,4 @@ inline constexpr size_t PcxHeaderSize = 128;
 
 std::optional<IoError> LoadPcxMeta(std::ifstream &file, int &width, int &height, uint8_t &bpp);
 
-} // namespace devilution
+} // namespace dvl_gfx

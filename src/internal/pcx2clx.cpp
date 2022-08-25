@@ -1,4 +1,4 @@
-#include "pcx2clx.hpp"
+#include <pcx2clx.hpp>
 
 #include <array>
 #include <cassert>
@@ -12,7 +12,7 @@
 #include "endian.hpp"
 #include "pcx.hpp"
 
-namespace devilution {
+namespace dvl_gfx {
 
 namespace {
 
@@ -95,8 +95,8 @@ std::optional<IoError> PcxToClx(const char *inputPath, const char *outputPath,
     int numFramesOrFrameHeight,
     std::optional<uint8_t> transparentColor,
     bool exportPalette,
-    uintmax_t &inputFileSize,
-    uintmax_t &outputFileSize)
+    uintmax_t *inputFileSize,
+    uintmax_t *outputFileSize)
 {
 	std::ifstream input;
 	input.open(inputPath, std::ios::in | std::ios::binary);
@@ -127,7 +127,8 @@ std::optional<IoError> PcxToClx(const char *inputPath, const char *outputPath,
 	uintmax_t pixelDataSize = std::filesystem::file_size(inputPath, ec);
 	if (ec)
 		return IoError { ec.message() };
-	inputFileSize = pixelDataSize;
+	if (inputFileSize != nullptr)
+		*inputFileSize = pixelDataSize;
 
 	pixelDataSize -= PcxHeaderSize;
 
@@ -226,7 +227,8 @@ std::optional<IoError> PcxToClx(const char *inputPath, const char *outputPath,
 	WriteLE32(&cl2Data[4 * (1 + static_cast<size_t>(numFrames))],
 	    static_cast<uint32_t>(cl2Data.size()));
 
-	outputFileSize = cl2Data.size();
+	if (outputFileSize != nullptr)
+		*outputFileSize = cl2Data.size();
 
 	if (exportPalette) {
 		constexpr unsigned PcxPaletteSeparator = 0x0C;
@@ -269,4 +271,4 @@ std::optional<IoError> PcxToClx(const char *inputPath, const char *outputPath,
 	return std::nullopt;
 }
 
-} // namespace devilution
+} // namespace dvl_gfx

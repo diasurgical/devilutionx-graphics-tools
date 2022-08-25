@@ -1,4 +1,4 @@
-#include "cel2clx.hpp"
+#include <cel2clx.hpp>
 
 #include <cassert>
 #include <cerrno>
@@ -10,7 +10,7 @@
 
 #include "endian.hpp"
 
-namespace devilution {
+namespace dvl_gfx {
 
 namespace {
 
@@ -98,14 +98,15 @@ void AppendCl2PixelsOrFillRun(const uint8_t *src, unsigned length, std::vector<u
 
 std::optional<IoError> CelToClx(const char *inputPath, const char *outputPath,
     const std::vector<uint16_t> &widths,
-    uintmax_t &inputFileSize,
-    uintmax_t &outputFileSize)
+    uintmax_t *inputFileSize,
+    uintmax_t *outputFileSize)
 {
 	std::error_code ec;
 	const uintmax_t size = std::filesystem::file_size(inputPath, ec);
 	if (ec)
 		return IoError { ec.message() };
-	inputFileSize = size;
+	if (inputFileSize != nullptr)
+		*inputFileSize = size;
 
 	std::ifstream input;
 	input.open(inputPath, std::ios::in | std::ios::binary);
@@ -214,7 +215,8 @@ std::optional<IoError> CelToClx(const char *inputPath, const char *outputPath,
 		data = srcEnd;
 	}
 
-	outputFileSize = cl2Data.size();
+	if (outputFileSize != nullptr)
+		*outputFileSize = cl2Data.size();
 	output.write(reinterpret_cast<const char *>(cl2Data.data()), static_cast<std::streamsize>(cl2Data.size()));
 	output.close();
 	if (output.fail())
@@ -224,4 +226,4 @@ std::optional<IoError> CelToClx(const char *inputPath, const char *outputPath,
 	return std::nullopt;
 }
 
-} // namespace devilution
+} // namespace dvl_gfx
