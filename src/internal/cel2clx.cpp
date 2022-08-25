@@ -97,7 +97,7 @@ void AppendCl2PixelsOrFillRun(const uint8_t *src, unsigned length, std::vector<u
 } // namespace
 
 std::optional<IoError> CelToClx(const char *inputPath, const char *outputPath,
-    const std::vector<uint16_t> &widths,
+    const uint16_t *widths, size_t numWidths,
     uintmax_t *inputFileSize,
     uintmax_t *outputFileSize)
 {
@@ -178,7 +178,7 @@ std::optional<IoError> CelToClx(const char *inputPath, const char *outputPath,
 			if (celFrameHasHeader)
 				src += CelFrameHeaderSize;
 
-			const unsigned frameWidth = widths.size() == 1 ? widths[0] : widths[frame - 1];
+			const unsigned frameWidth = numWidths == 1 ? *widths : widths[frame - 1];
 
 			// CLX frame header.
 			const size_t frameHeaderPos = cl2Data.size();

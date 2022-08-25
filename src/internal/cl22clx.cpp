@@ -61,7 +61,7 @@ size_t CountCl2FramePixels(const uint8_t *src, const uint8_t *srcEnd)
 } // namespace
 
 std::optional<IoError> Cl2ToClx(const char *inputPath, const char *outputPath,
-    const std::vector<uint16_t> &widths)
+    const uint16_t *widths, size_t numWidths)
 {
 	std::error_code ec;
 	const uintmax_t size = std::filesystem::file_size(inputPath, ec);
@@ -117,7 +117,7 @@ std::optional<IoError> Cl2ToClx(const char *inputPath, const char *outputPath,
 			constexpr size_t Cl2FrameHeaderSize = 10;
 			const size_t numPixels = CountCl2FramePixels(frameBegin + Cl2FrameHeaderSize, frameEnd);
 
-			const uint16_t frameWidth = widths.size() == 1 ? widths[0] : widths[frame - 1];
+			const uint16_t frameWidth = numWidths == 1 ? *widths : widths[frame - 1];
 			const uint16_t frameHeight = numPixels / frameWidth;
 			WriteLE16(&frameBegin[2], frameWidth);
 			WriteLE16(&frameBegin[4], frameHeight);
