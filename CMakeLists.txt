@@ -81,11 +81,13 @@ endforeach()
 install(
   TARGETS cel2clx cl22clx pcx2clx common EXPORT DvlGfxTargets
   CONFIGURATIONS Release
+  COMPONENT Development
 )
 
 install(
   TARGETS cel2clx_main cl22clx_main pcx2clx_main
   CONFIGURATIONS Release
+  COMPONENT Binaries
 )
 
 if(NOT DEFINED LIB_INSTALL_DIR)
@@ -115,6 +117,8 @@ install(EXPORT DvlGfxTargets
     DvlGfx::
   DESTINATION
     ${ConfigPackageLocation}
+  COMPONENT
+    Development
 )
 install(
   FILES
@@ -123,5 +127,5 @@ install(
   DESTINATION
     ${ConfigPackageLocation}
   COMPONENT
-    Devel
+    Development
 )
