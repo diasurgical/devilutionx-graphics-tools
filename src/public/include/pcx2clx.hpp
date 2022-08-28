@@ -4,10 +4,27 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <dvl_gfx_common.hpp> // IWYU pragma: export
 
 namespace dvl_gfx {
+
+/**
+ * @brief Converts a PCX image to CLX.
+ *
+ * @param data The PCX buffer.
+ * @param size PCX buffer size.
+ * @param numFramesOrFrameHeight Number of vertically-stacked frames if positive, frame height if negative.
+ * @param transparentColor Palette index of the transparent color.
+ * @param paletteData If non-null, PCX palette data (256 * 3 bytes).
+ * @return std::optional<IoError>
+ */
+std::optional<IoError> PcxToClx(const uint8_t *data, size_t size,
+    int numFramesOrFrameHeight,
+    std::optional<uint8_t> transparentColor,
+    std::vector<uint8_t> &clxData,
+    uint8_t *paletteData = nullptr);
 
 std::optional<IoError> PcxToClx(const char *inputPath, const char *outputPath,
     int numFramesOrFrameHeight = 1,

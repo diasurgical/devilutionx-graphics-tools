@@ -91,26 +91,20 @@ void AppendCl2PixelsOrFillRun(const uint8_t *src, unsigned length,
 
 } // namespace
 
-std::optional<IoError> PcxToClx(const char *inputPath, const char *outputPath,
+std::optional<IoError> PcxToClx(const uint8_t *data, size_t size,
     int numFramesOrFrameHeight,
     std::optional<uint8_t> transparentColor,
-    bool exportPalette,
-    uintmax_t *inputFileSize,
-    uintmax_t *outputFileSize)
+    std::vector<uint8_t> &clxData,
+    uint8_t *paletteData)
 {
-	std::ifstream input;
-	input.open(inputPath, std::ios::in | std::ios::binary);
-	if (input.fail())
-		return IoError { std::string("Failed to open input file: ")
-			                 .append(std::strerror(errno)) };
-
 	int width;
 	int height;
 	uint8_t bpp;
-	if (std::optional<IoError> error = LoadPcxMeta(input, width, height, bpp);
-	    error.has_value()) {
-		return error;
+	if (size < PcxHeaderSize) {
+		return IoError { "data too small" };
 	}
+	const uint8_t *pixelData = LoadPcxMeta(data, width, height, bpp);
+	const size_t pixelDataSize = size - PcxHeaderSize;
 	assert(bpp == 8);
 
 	unsigned numFrames;
@@ -123,29 +117,10 @@ std::optional<IoError> PcxToClx(const char *inputPath, const char *outputPath,
 		numFrames = height / frameHeight;
 	}
 
-	std::error_code ec;
-	uintmax_t pixelDataSize = std::filesystem::file_size(inputPath, ec);
-	if (ec)
-		return IoError { ec.message() };
-	if (inputFileSize != nullptr)
-		*inputFileSize = pixelDataSize;
-
-	pixelDataSize -= PcxHeaderSize;
-
-	std::unique_ptr<uint8_t[]> fileBuffer { new uint8_t[pixelDataSize] };
-	input.read(reinterpret_cast<char *>(fileBuffer.get()), static_cast<std::streamsize>(pixelDataSize));
-	if (input.fail()) {
-		return IoError {
-			std::string("Failed to read PCX data: ").append(std::strerror(errno))
-		};
-	}
-	input.close();
-
 	// CLX header: frame count, frame offset for each frame, file size
-	std::vector<uint8_t> cl2Data;
-	cl2Data.reserve(pixelDataSize);
-	cl2Data.resize(4 * (2 + static_cast<size_t>(numFrames)));
-	WriteLE32(cl2Data.data(), numFrames);
+	clxData.reserve(pixelDataSize);
+	clxData.resize(4 * (2 + static_cast<size_t>(numFrames)));
+	WriteLE32(clxData.data(), numFrames);
 
 	// We process the PCX a whole frame at a time because the lines are reversed
 	// in CEL.
@@ -153,25 +128,25 @@ std::optional<IoError> PcxToClx(const char *inputPath, const char *outputPath,
 	    new uint8_t[static_cast<size_t>(frameHeight) * width]);
 
 	const unsigned srcSkip = width % 2;
-	uint8_t *dataPtr = fileBuffer.get();
+	const uint8_t *dataPtr = pixelData;
 	for (unsigned frame = 1; frame <= numFrames; ++frame) {
-		WriteLE32(&cl2Data[4 * static_cast<size_t>(frame)],
-		    static_cast<uint32_t>(cl2Data.size()));
+		WriteLE32(&clxData[4 * static_cast<size_t>(frame)],
+		    static_cast<uint32_t>(clxData.size()));
 
 		// Frame header: 5 16-bit values:
 		// 1. Offset to start of the pixel data.
 		// 2. Width
 		// 3. Height
 		// 4..5. Unused (0)
-		const size_t frameHeaderPos = cl2Data.size();
+		const size_t frameHeaderPos = clxData.size();
 		constexpr size_t FrameHeaderSize = 10;
-		cl2Data.resize(cl2Data.size() + FrameHeaderSize);
+		clxData.resize(clxData.size() + FrameHeaderSize);
 
 		// Frame header:
-		WriteLE16(&cl2Data[frameHeaderPos], FrameHeaderSize);
-		WriteLE16(&cl2Data[frameHeaderPos + 2], static_cast<uint16_t>(width));
-		WriteLE16(&cl2Data[frameHeaderPos + 4], static_cast<uint16_t>(frameHeight));
-		memset(&cl2Data[frameHeaderPos + 6], 0, 4);
+		WriteLE16(&clxData[frameHeaderPos], FrameHeaderSize);
+		WriteLE16(&clxData[frameHeaderPos + 2], static_cast<uint16_t>(width));
+		WriteLE16(&clxData[frameHeaderPos + 4], static_cast<uint16_t>(frameHeight));
+		memset(&clxData[frameHeaderPos + 6], 0, 4);
 
 		for (unsigned j = 0; j < frameHeight; ++j) {
 			uint8_t *buffer = &frameBuffer[static_cast<size_t>(j) * width];
@@ -204,51 +179,91 @@ std::optional<IoError> PcxToClx(const char *inputPath, const char *outputPath,
 						if (solidRunWidth != 0) {
 							AppendCl2PixelsOrFillRun(
 							    src - transparentRunWidth - solidRunWidth, solidRunWidth,
-							    cl2Data);
+							    clxData);
 							solidRunWidth = 0;
 						}
 						++transparentRunWidth;
 					} else {
-						AppendCl2TransparentRun(transparentRunWidth, cl2Data);
+						AppendCl2TransparentRun(transparentRunWidth, clxData);
 						transparentRunWidth = 0;
 						++solidRunWidth;
 					}
 				}
 				if (solidRunWidth != 0) {
-					AppendCl2PixelsOrFillRun(src - solidRunWidth, solidRunWidth, cl2Data);
+					AppendCl2PixelsOrFillRun(src - solidRunWidth, solidRunWidth, clxData);
 				}
 			} else {
-				AppendCl2PixelsOrFillRun(src, width, cl2Data);
+				AppendCl2PixelsOrFillRun(src, width, clxData);
 			}
 			++line;
 		}
-		AppendCl2TransparentRun(transparentRunWidth, cl2Data);
+		AppendCl2TransparentRun(transparentRunWidth, clxData);
 	}
-	WriteLE32(&cl2Data[4 * (1 + static_cast<size_t>(numFrames))],
-	    static_cast<uint32_t>(cl2Data.size()));
+	WriteLE32(&clxData[4 * (1 + static_cast<size_t>(numFrames))],
+	    static_cast<uint32_t>(clxData.size()));
 
-	if (outputFileSize != nullptr)
-		*outputFileSize = cl2Data.size();
-
-	if (exportPalette) {
+	if (paletteData != nullptr) {
 		constexpr unsigned PcxPaletteSeparator = 0x0C;
 		if (*dataPtr++ != PcxPaletteSeparator)
 			return IoError { std::string("PCX has no palette") };
 
-		std::array<uint8_t, 256 * 3> outPalette;
-		uint8_t *out = &outPalette[0];
+		uint8_t *out = paletteData;
 		for (unsigned i = 0; i < 256; ++i) {
 			*out++ = *dataPtr++;
 			*out++ = *dataPtr++;
 			*out++ = *dataPtr++;
 		}
+	}
+	return std::nullopt;
+}
 
+std::optional<IoError> PcxToClx(const char *inputPath, const char *outputPath,
+    int numFramesOrFrameHeight,
+    std::optional<uint8_t> transparentColor,
+    bool exportPalette,
+    uintmax_t *inputFileSize,
+    uintmax_t *outputFileSize)
+{
+	std::ifstream input;
+	input.open(inputPath, std::ios::in | std::ios::binary);
+	if (input.fail())
+		return IoError { std::string("Failed to open input file: ")
+			                 .append(std::strerror(errno)) };
+
+	std::error_code ec;
+	uintmax_t pixelDataSize = std::filesystem::file_size(inputPath, ec);
+	if (ec)
+		return IoError { ec.message() };
+	if (inputFileSize != nullptr)
+		*inputFileSize = pixelDataSize;
+
+	std::unique_ptr<uint8_t[]> fileBuffer { new uint8_t[pixelDataSize] };
+	input.read(reinterpret_cast<char *>(fileBuffer.get()), static_cast<std::streamsize>(pixelDataSize));
+	if (input.fail()) {
+		return IoError {
+			std::string("Failed to read PCX data: ").append(std::strerror(errno))
+		};
+	}
+	input.close();
+
+	std::vector<uint8_t> clxData;
+	std::array<uint8_t, 256 * 3> paletteData;
+	if (const std::optional<IoError> error = PcxToClx(fileBuffer.get(), pixelDataSize, numFramesOrFrameHeight, transparentColor,
+	        clxData, exportPalette ? paletteData.data() : nullptr);
+	    error.has_value()) {
+		return error;
+	}
+
+	if (outputFileSize != nullptr)
+		*outputFileSize = clxData.size();
+
+	if (exportPalette) {
 		std::ofstream output;
 		output.open(std::filesystem::path(outputPath).replace_extension("pal").c_str(), std::ios::out | std::ios::binary);
 		if (output.fail())
 			return IoError { std::string("Failed to open palette output file: ")
 				                 .append(std::strerror(errno)) };
-		output.write(reinterpret_cast<const char *>(outPalette.data()), static_cast<std::streamsize>(outPalette.size()));
+		output.write(reinterpret_cast<const char *>(paletteData.data()), static_cast<std::streamsize>(paletteData.size()));
 		output.close();
 		if (output.fail())
 			return IoError { std::string("Failed to write to palette output file: ")
@@ -261,7 +276,7 @@ std::optional<IoError> PcxToClx(const char *inputPath, const char *outputPath,
 		if (output.fail())
 			return IoError { std::string("Failed to open output file: ")
 				                 .append(std::strerror(errno)) };
-		output.write(reinterpret_cast<const char *>(cl2Data.data()), static_cast<std::streamsize>(cl2Data.size()));
+		output.write(reinterpret_cast<const char *>(clxData.data()), static_cast<std::streamsize>(clxData.size()));
 		output.close();
 		if (output.fail())
 			return IoError { std::string("Failed to write to output file: ")

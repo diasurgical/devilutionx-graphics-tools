@@ -2,10 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <fstream>
-#include <optional>
-
-#include <dvl_gfx_common.hpp>
 
 namespace dvl_gfx {
 
@@ -32,6 +28,6 @@ struct PCXHeader {
 
 inline constexpr size_t PcxHeaderSize = 128;
 
-std::optional<IoError> LoadPcxMeta(std::ifstream &file, int &width, int &height, uint8_t &bpp);
+const uint8_t *LoadPcxMeta(const uint8_t *data, int &width, int &height, uint8_t &bpp);
 
 } // namespace dvl_gfx

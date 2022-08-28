@@ -60,35 +60,9 @@ size_t CountCl2FramePixels(const uint8_t *src, const uint8_t *srcEnd)
 
 } // namespace
 
-std::optional<IoError> Cl2ToClx(const char *inputPath, const char *outputPath,
+std::optional<IoError> Cl2ToClx(uint8_t *data, size_t size,
     const uint16_t *widths, size_t numWidths)
 {
-	std::error_code ec;
-	const uintmax_t size = std::filesystem::file_size(inputPath, ec);
-	if (ec)
-		return IoError { ec.message() };
-
-	std::ifstream input;
-	input.open(inputPath, std::ios::in | std::ios::binary);
-	if (input.fail())
-		return IoError { std::string("Failed to open input file: ")
-			                 .append(std::strerror(errno)) };
-	std::unique_ptr<uint8_t[]> ownedData { new uint8_t[size] };
-	input.read(reinterpret_cast<char *>(ownedData.get()), static_cast<std::streamsize>(size));
-	if (input.fail()) {
-		return IoError {
-			std::string("Failed to read CL2 data: ").append(std::strerror(errno))
-		};
-	}
-	input.close();
-	uint8_t *data = ownedData.get();
-
-	std::ofstream output;
-	output.open(outputPath, std::ios::out | std::ios::binary);
-	if (output.fail())
-		return IoError { std::string("Failed to open output file: ")
-			                 .append(std::strerror(errno)) };
-
 	uint32_t numGroups = 1;
 	const uint32_t maybeNumFrames = LoadLE32(data);
 	uint8_t *groupBegin = data;
@@ -124,6 +98,40 @@ std::optional<IoError> Cl2ToClx(const char *inputPath, const char *outputPath,
 			memset(&frameBegin[6], 0, 4);
 		}
 	}
+	return std::nullopt;
+}
+
+std::optional<IoError> Cl2ToClx(const char *inputPath, const char *outputPath,
+    const uint16_t *widths, size_t numWidths)
+{
+	std::error_code ec;
+	const uintmax_t size = std::filesystem::file_size(inputPath, ec);
+	if (ec)
+		return IoError { ec.message() };
+
+	std::ifstream input;
+	input.open(inputPath, std::ios::in | std::ios::binary);
+	if (input.fail())
+		return IoError { std::string("Failed to open input file: ")
+			                 .append(std::strerror(errno)) };
+	std::unique_ptr<uint8_t[]> ownedData { new uint8_t[size] };
+	input.read(reinterpret_cast<char *>(ownedData.get()), static_cast<std::streamsize>(size));
+	if (input.fail()) {
+		return IoError {
+			std::string("Failed to read CL2 data: ").append(std::strerror(errno))
+		};
+	}
+	input.close();
+
+	std::ofstream output;
+	output.open(outputPath, std::ios::out | std::ios::binary);
+	if (output.fail())
+		return IoError { std::string("Failed to open output file: ")
+			                 .append(std::strerror(errno)) };
+
+	std::optional<IoError> result = Cl2ToClx(ownedData.get(), size, widths, numWidths);
+	if (result.has_value())
+		return result;
 
 	output.write(reinterpret_cast<const char *>(ownedData.get()), static_cast<std::streamsize>(size));
 	output.close();
