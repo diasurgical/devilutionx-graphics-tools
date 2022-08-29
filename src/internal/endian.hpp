@@ -33,9 +33,11 @@ constexpr uint32_t LoadBE32(const T *b)
 template <typename T>
 constexpr T ByteSwap(T value) noexcept
 {
-	auto bytes = std::bit_cast<std::array<std::byte, sizeof(T)>>(value);
+	std::array<std::byte, sizeof(T)> bytes;
+	std::memcpy(bytes.data(), &value, sizeof(T));
 	std::reverse(bytes.begin(), bytes.end());
-	return std::bit_cast<T>(bytes);
+	std::memcpy(&value, bytes.data(), sizeof(T));
+	return value;
 }
 
 template <typename T>
