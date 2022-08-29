@@ -4,6 +4,7 @@ project(DvlGfx VERSION 1.0.0 LANGUAGES C CXX)
 
 option(ASAN "Enable address sanitizer" ON)
 option(UBSAN "Enable undefined behaviour sanitizer" ON)
+option(ENABLE_INSTALL "Enable install targets" ON)
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
 
@@ -78,54 +79,55 @@ foreach(_target cel2clx_main cl22clx_main pcx2clx_main)
   endif()
 endforeach()
 
-install(
-  TARGETS cel2clx cl22clx pcx2clx common EXPORT DvlGfxTargets
-  CONFIGURATIONS Release
-  COMPONENT Development
-)
+if(ENABLE_INSTALL)
+  install(
+    TARGETS cel2clx cl22clx pcx2clx common EXPORT DvlGfxTargets
+    CONFIGURATIONS Release
+    COMPONENT Development
+  )
+  install(
+    TARGETS cel2clx_main cl22clx_main pcx2clx_main
+    CONFIGURATIONS Release
+    COMPONENT Binaries
+  )
 
-install(
-  TARGETS cel2clx_main cl22clx_main pcx2clx_main
-  CONFIGURATIONS Release
-  COMPONENT Binaries
-)
+  if(NOT DEFINED LIB_INSTALL_DIR)
+    set(LIB_INSTALL_DIR lib)
+  endif()
+  set(ConfigPackageLocation "${LIB_INSTALL_DIR}/cmake/DvlGfx")
 
-if(NOT DEFINED LIB_INSTALL_DIR)
-  set(LIB_INSTALL_DIR lib)
-endif()
-set(ConfigPackageLocation "${LIB_INSTALL_DIR}/cmake/DvlGfx")
-
-include(CMakePackageConfigHelpers)
-configure_package_config_file(cmake/DvlGfx.cmake.in
-  "${CMAKE_CURRENT_BINARY_DIR}/DvlGfx/DvlGfxConfig.cmake"
-  INSTALL_DESTINATION ${ConfigPackageLocation})
-write_basic_package_version_file(
-  "${CMAKE_CURRENT_BINARY_DIR}/DvlGfx/DvlGfxConfigVersion.cmake"
-  VERSION ${DvlGfx_VERSION}
-  COMPATIBILITY AnyNewerVersion
-)
-
-export(EXPORT DvlGfxTargets
-  FILE "${CMAKE_CURRENT_BINARY_DIR}/DvlGfx/DvlGfxTargets.cmake"
-  NAMESPACE DvlGfx::
-)
-
-install(EXPORT DvlGfxTargets
-  FILE
-    DvlGfxTargets.cmake
-  NAMESPACE
-    DvlGfx::
-  DESTINATION
-    ${ConfigPackageLocation}
-  COMPONENT
-    Development
-)
-install(
-  FILES
+  include(CMakePackageConfigHelpers)
+  configure_package_config_file(cmake/DvlGfx.cmake.in
     "${CMAKE_CURRENT_BINARY_DIR}/DvlGfx/DvlGfxConfig.cmake"
+    INSTALL_DESTINATION ${ConfigPackageLocation})
+  write_basic_package_version_file(
     "${CMAKE_CURRENT_BINARY_DIR}/DvlGfx/DvlGfxConfigVersion.cmake"
-  DESTINATION
-    ${ConfigPackageLocation}
-  COMPONENT
-    Development
-)
+    VERSION ${DvlGfx_VERSION}
+    COMPATIBILITY AnyNewerVersion
+  )
+
+  export(EXPORT DvlGfxTargets
+    FILE "${CMAKE_CURRENT_BINARY_DIR}/DvlGfx/DvlGfxTargets.cmake"
+    NAMESPACE DvlGfx::
+  )
+
+  install(EXPORT DvlGfxTargets
+    FILE
+      DvlGfxTargets.cmake
+    NAMESPACE
+      DvlGfx::
+    DESTINATION
+      ${ConfigPackageLocation}
+    COMPONENT
+      Development
+  )
+  install(
+    FILES
+      "${CMAKE_CURRENT_BINARY_DIR}/DvlGfx/DvlGfxConfig.cmake"
+      "${CMAKE_CURRENT_BINARY_DIR}/DvlGfx/DvlGfxConfigVersion.cmake"
+    DESTINATION
+      ${ConfigPackageLocation}
+    COMPONENT
+      Development
+  )
+endif()
