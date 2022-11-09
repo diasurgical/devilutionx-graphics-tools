@@ -3,7 +3,7 @@
 #include <cerrno>
 #include <cstring>
 
-#include "endian.hpp"
+#include <dvl_gfx_endian.hpp>
 
 namespace dvl_gfx {
 
