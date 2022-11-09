@@ -8,7 +8,7 @@
 #include <memory>
 #include <vector>
 
-#include "endian.hpp"
+#include <dvl_gfx_endian.hpp>
 
 namespace dvl_gfx {
 
