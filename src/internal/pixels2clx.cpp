@@ -11,13 +11,6 @@
 
 namespace dvl_gfx {
 
-namespace {
-
-using ::dvl_gfx::internal::AppendClxPixelsOrFillRun;
-using ::dvl_gfx::internal::AppendClxTransparentRun;
-
-} // namespace
-
 void Pixels2Clx(
     const uint8_t *pixels,
     unsigned pitch, unsigned width, unsigned frameHeight, unsigned numFrames,

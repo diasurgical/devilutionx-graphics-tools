@@ -32,5 +32,17 @@ inline std::optional<IoError> Cl2ToClx(const char *inputPath, const char *output
 	return Cl2ToClx(inputPath, outputPath, widths.data(), widths.size());
 }
 
+/**
+ * @brief Converts multiple CL2 images to a CLX sheet.
+ *
+ * @param inputPaths Paths to the input files.
+ * @param numFiles The number of `inputPaths`.
+ * @param widths Widths of each frame. If all the frame are the same width, this can be a single number.
+ * @return std::optional<IoError>
+ */
+std::optional<IoError> CombineCl2AsClxSheet(
+    const char *const *inputPaths, size_t numFiles, const char *outputPath,
+    const std::vector<uint16_t> &widths);
+
 } // namespace dvl_gfx
 #endif // DVL_GFX_CL22CLX_H_

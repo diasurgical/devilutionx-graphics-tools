@@ -16,9 +16,6 @@ namespace dvl_gfx {
 
 namespace {
 
-using ::dvl_gfx::internal::AppendClxPixelsOrFillRun;
-using ::dvl_gfx::internal::AppendClxTransparentRun;
-
 constexpr bool IsCelTransparent(uint8_t control)
 {
 	constexpr uint8_t CelTransparentMin = 0x80;

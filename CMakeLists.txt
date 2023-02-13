@@ -27,14 +27,18 @@ set_target_properties(common PROPERTIES PUBLIC_HEADER "src/public/include/dvl_gf
 set_target_properties(common PROPERTIES PUBLIC_HEADER "src/public/include/dvl_gfx_endian.hpp")
 
 add_library(clx_decode INTERFACE)
+add_library(DvlGfx::clx_decode ALIAS clx_decode)
 target_include_directories(clx_decode INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/public/include>
   $<INSTALL_INTERFACE:include>)
+set_target_properties(clx_decode PROPERTIES PUBLIC_HEADER "src/public/include/clx_decode.hpp")
 
 add_library(
-  clx_encode OBJECT
-  src/internal/clx_encode.hpp
+  clx_encode
   src/internal/clx_encode.cpp)
+add_library(DvlGfx::clx_encode ALIAS clx_encode)
+target_link_libraries(clx_encode PUBLIC common)
+set_target_properties(clx_decode PROPERTIES PUBLIC_HEADER "src/public/include/clx_encode.hpp")
 target_include_directories(clx_encode PRIVATE src/internal)
 
 add_library(
@@ -43,7 +47,7 @@ add_library(
 )
 add_library(DvlGfx::cel2clx ALIAS cel2clx)
 target_link_libraries(cel2clx PUBLIC common)
-target_link_libraries(cel2clx PRIVATE $<TARGET_OBJECTS:clx_encode>)
+target_link_libraries(cel2clx PRIVATE clx_encode)
 set_target_properties(cel2clx PROPERTIES PUBLIC_HEADER "src/public/include/cel2clx.hpp")
 target_include_directories(cel2clx PRIVATE src/internal)
 
@@ -58,6 +62,7 @@ add_library(
 )
 add_library(DvlGfx::cl22clx ALIAS cl22clx)
 target_link_libraries(cl22clx PUBLIC common)
+target_link_libraries(cel2clx PRIVATE clx_encode)
 set_target_properties(cl22clx PROPERTIES PUBLIC_HEADER "src/public/include/cl22clx.hpp")
 target_include_directories(cl22clx PRIVATE src/internal)
 
@@ -72,7 +77,7 @@ add_library(
   src/internal/pcx2clx.cpp)
 add_library(DvlGfx::pcx2clx ALIAS pcx2clx)
 target_link_libraries(pcx2clx PUBLIC common)
-target_link_libraries(pcx2clx PRIVATE $<TARGET_OBJECTS:clx_encode>)
+target_link_libraries(pcx2clx PRIVATE clx_encode)
 set_target_properties(pcx2clx PROPERTIES PUBLIC_HEADER "src/public/include/pcx2clx.hpp")
 target_include_directories(pcx2clx PRIVATE src/internal)
 
@@ -86,7 +91,7 @@ add_library(
   src/internal/pixels2clx.cpp)
 add_library(DvlGfx::pixels2clx ALIAS pixels2clx)
 target_link_libraries(pixels2clx PUBLIC common)
-target_link_libraries(pixels2clx PRIVATE $<TARGET_OBJECTS:clx_encode>)
+target_link_libraries(pixels2clx PRIVATE clx_encode)
 set_target_properties(pixels2clx PROPERTIES PUBLIC_HEADER "src/public/include/pixels2clx.hpp")
 target_include_directories(pixels2clx PRIVATE src/internal)
 
@@ -112,7 +117,7 @@ endforeach()
 
 if(ENABLE_INSTALL)
   install(
-    TARGETS cel2clx cl22clx pcx2clx pixels2clx clx2pixels clx_decode common EXPORT DvlGfxTargets
+    TARGETS cel2clx cl22clx pcx2clx pixels2clx clx2pixels clx_encode clx_decode common EXPORT DvlGfxTargets
     CONFIGURATIONS Release
     COMPONENT Development
   )

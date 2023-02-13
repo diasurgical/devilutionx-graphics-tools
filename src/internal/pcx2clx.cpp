@@ -16,13 +16,6 @@
 
 namespace dvl_gfx {
 
-namespace {
-
-using ::dvl_gfx::internal::AppendClxPixelsOrFillRun;
-using ::dvl_gfx::internal::AppendClxTransparentRun;
-
-} // namespace
-
 std::optional<IoError> PcxToClx(const uint8_t *data, size_t size,
     int numFramesOrFrameHeight,
     std::optional<uint8_t> transparentColor,
