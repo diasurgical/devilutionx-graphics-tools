@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 
+#include <clx_encode.hpp>
 #include <dvl_gfx_endian.hpp>
 
 namespace dvl_gfx {
@@ -134,6 +135,61 @@ std::optional<IoError> Cl2ToClx(const char *inputPath, const char *outputPath,
 		return result;
 
 	output.write(reinterpret_cast<const char *>(ownedData.get()), static_cast<std::streamsize>(size));
+	output.close();
+	if (output.fail())
+		return IoError { std::string("Failed to write to output file: ")
+			                 .append(std::strerror(errno)) };
+	return std::nullopt;
+}
+
+std::optional<IoError> CombineCl2AsClxSheet(
+    const char *const *inputPaths, size_t numFiles, const char *outputPath,
+    const std::vector<uint16_t> &widths)
+{
+	size_t accumulatedSize = ClxSheetHeaderSize(numFiles);
+	std::vector<size_t> offsets;
+	offsets.reserve(numFiles + 1);
+	for (size_t i = 0; i < numFiles; ++i) {
+		const char *inputPath = inputPaths[i];
+		std::ifstream input;
+		std::error_code ec;
+		const uintmax_t size = std::filesystem::file_size(inputPath, ec);
+		if (ec)
+			return IoError { ec.message() };
+		offsets.push_back(accumulatedSize);
+		accumulatedSize += size;
+	}
+	offsets.push_back(accumulatedSize);
+	std::unique_ptr<uint8_t[]> ownedData { new uint8_t[accumulatedSize] };
+	for (size_t i = 0; i < numFiles; ++i) {
+		ClxSheetHeaderSetListOffset(i, offsets[i], ownedData.get());
+		std::ifstream input;
+		input.open(inputPaths[i], std::ios::in | std::ios::binary);
+		if (input.fail()) {
+			return IoError { std::string("Failed to open input file: ")
+				                 .append(std::strerror(errno)) };
+		}
+		input.read(reinterpret_cast<char *>(&ownedData[offsets[i]]), static_cast<std::streamsize>(offsets[i + 1] - offsets[i]));
+		if (input.fail()) {
+			return IoError {
+				std::string("Failed to read CL2 data: ").append(std::strerror(errno))
+			};
+		}
+		input.close();
+	}
+	if (std::optional<IoError> error = Cl2ToClx(
+	        ownedData.get(), accumulatedSize, widths.data(), widths.size());
+	    error.has_value()) {
+		return error;
+	}
+
+	std::ofstream output;
+	output.open(outputPath, std::ios::out | std::ios::binary);
+	if (output.fail())
+		return IoError { std::string("Failed to open output file: ")
+			                 .append(std::strerror(errno)) };
+
+	output.write(reinterpret_cast<const char *>(ownedData.get()), static_cast<std::streamsize>(accumulatedSize));
 	output.close();
 	if (output.fail())
 		return IoError { std::string("Failed to write to output file: ")

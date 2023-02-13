@@ -2,7 +2,7 @@
 
 #include <cstddef>
 
-namespace dvl_gfx::internal {
+namespace dvl_gfx {
 
 namespace {
 
@@ -77,4 +77,4 @@ void AppendClxPixelsOrFillRun(const uint8_t *src, unsigned length, std::vector<u
 	AppendClxFillRun(prevColor, prevColorRunLength, out);
 }
 
-} // namespace dvl_gfx::internal
+} // namespace dvl_gfx
