@@ -73,8 +73,16 @@ void AppendClxPixelsOrFillRun(const uint8_t *src, unsigned length, std::vector<u
 		}
 		++src;
 	}
-	AppendClxPixelsRun(begin, prevColorBegin - begin, out);
-	AppendClxFillRun(prevColor, prevColorRunLength, out);
+
+	// Here we use 2 instead of `MinFillRunLength` because we know that this run
+	// is followed by transparent pixels.
+	// Width=2 Fill command takes 2 bytes, while the Pixels command is 3 bytes.
+	if (prevColorRunLength >= 2) {
+		AppendClxPixelsRun(begin, prevColorBegin - begin, out);
+		AppendClxFillRun(prevColor, prevColorRunLength, out);
+	} else {
+		AppendClxPixelsRun(begin, prevColorBegin - begin + prevColorRunLength, out);
+	}
 }
 
 } // namespace dvl_gfx
