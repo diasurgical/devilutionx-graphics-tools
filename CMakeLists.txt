@@ -18,6 +18,44 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # for clang-tidy
 
+# Built-in palettes
+foreach(_path
+  default diablo_menu hellfire_menu)
+  file(READ data/${_path}.pal _hex_string HEX)
+  string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1, " _array_values ${_hex_string})
+  string(REGEX REPLACE ", $" "" _array_values ${_array_values})
+  set(_c_name "dvl_gfx_embedded_${_path}_pal")
+  string(APPEND _output_c "
+const unsigned char ${_c_name}_data[] = {
+  ${_array_values}
+};
+const unsigned ${_c_name}_size = sizeof(${_c_name}_data) / sizeof(${_c_name}_data[0]);
+")
+  string(APPEND _output_h "
+extern unsigned char const ${_c_name}_data[];
+extern const unsigned ${_c_name}_size;
+")
+endforeach()
+
+# Note: The file will only be regenarated on reconfigure, not when the source file changes.
+# We do not expect the source files to change much so it's fine.
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/dvl_gfx_embedded_palettes.h
+  CONTENT "#ifndef DVL_GFX_EMBEDDED_PALETTES_H_
+${_output_h}
+#define DVL_GFX_EMBEDDED_PALETTES_H_
+#endif  // DVL_GFX_EMBEDDED_PALETTES_H_
+")
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/dvl_gfx_embedded_palettes.c
+  CONTENT "#include \"dvl_gfx_embedded_palettes.h\"
+${_output_c}
+")
+add_library(embedded_palettes OBJECT
+  ${CMAKE_CURRENT_BINARY_DIR}/dvl_gfx_embedded_palettes.c)
+target_include_directories(embedded_palettes PUBLIC
+  ${CMAKE_CURRENT_BINARY_DIR})
+
 add_library(common INTERFACE)
 target_include_directories(common INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/public/include>
@@ -72,6 +110,17 @@ target_link_libraries(cl22clx_main PRIVATE cl22clx)
 target_include_directories(cl22clx_main PRIVATE src/internal)
 
 add_library(
+  pcx_encode
+  src/internal/pcx_encode.cpp)
+target_link_libraries(pcx_encode PUBLIC common)
+target_include_directories(pcx_encode PRIVATE src/internal)
+
+add_executable(clx2pcx_main src/internal/clx2pcx_main.cpp)
+set_property(TARGET clx2pcx_main PROPERTY RUNTIME_OUTPUT_NAME clx2pcx)
+target_link_libraries(clx2pcx_main PRIVATE clx2pixels pcx_encode embedded_palettes)
+target_include_directories(clx2pcx_main PRIVATE src/internal)
+
+add_library(
   pcx2clx
   src/internal/pcx.cpp
   src/internal/pcx2clx.cpp)
@@ -122,7 +171,7 @@ if(ENABLE_INSTALL)
     COMPONENT Development
   )
   install(
-    TARGETS cel2clx_main cl22clx_main pcx2clx_main
+    TARGETS cel2clx_main cl22clx_main clx2pcx_main pcx2clx_main
     CONFIGURATIONS Release
     COMPONENT Binaries
   )

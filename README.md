@@ -22,6 +22,10 @@ Converts CEL files to CLX. Run `cel2clx --help` for more information.
 
 Converts CL2 files to CLX. Run `cl22clx --help` for more information.
 
+## clx2pcx
+
+Converts CLX files to PCX. Run `clx2pcx --help` for more information.
+
 ## pcx2clx
 
 Converts PCX files to CLX. Run `pcx2clx --help` for more information.

@@ -1,6 +1,8 @@
 #include <clx2pixels.hpp>
 
 #include <cstring>
+
+#include <algorithm>
 #include <span>
 
 #include "clx_decode.hpp"
@@ -8,27 +10,6 @@
 namespace dvl_gfx {
 
 namespace {
-
-std::optional<IoError> CheckSupportedClx(std::span<const uint8_t> clxData)
-{
-	if (GetNumListsFromClxListOrSheetBuffer(clxData) != 0) {
-		return IoError { std::string("CLX sprite sheets are not supported") };
-	}
-	const size_t numSprites = GetNumSpritesFromClxList(clxData.data());
-
-	const std::span<const uint8_t> firstSprite = GetSpriteDataFromClxList(clxData.data(), 0);
-	const uint16_t firstSpriteWidth = GetClxSpriteWidth(firstSprite.data());
-	const uint16_t firstSpriteHeight = GetClxSpriteHeight(firstSprite.data());
-	for (size_t i = 1; i < numSprites; ++i) {
-		const std::span<const uint8_t> sprite = GetSpriteDataFromClxList(clxData.data(), i);
-		const uint16_t spriteWidth = GetClxSpriteWidth(sprite.data());
-		const uint16_t spriteHeight = GetClxSpriteHeight(sprite.data());
-		if (spriteWidth != firstSpriteWidth || spriteHeight != firstSpriteHeight) {
-			return IoError { std::string("All the sprites in the CLX sprite list must have the same dimensions") };
-		}
-	}
-	return std::nullopt;
-}
 
 void BlitFillDirect(uint8_t *dst, unsigned length, uint8_t color)
 {
@@ -97,36 +78,96 @@ void BlitClxSprite(std::span<const uint8_t> clxSprite, uint8_t *dstBegin, unsign
 	}
 }
 
-void ConvertClxToPixels(
-    const uint8_t *clxData,
+Size BlitClxSpriteList(
+    std::span<const uint8_t> clxList,
     uint8_t transparentColor,
     uint8_t *pixels,
-    unsigned pitch)
+    unsigned pitch,
+    uint32_t x)
 {
-	const uint32_t numSprites = GetNumSpritesFromClxList(clxData);
-	const uint16_t height = GetClxSpriteHeight(GetSpriteDataFromClxList(clxData, 0).data());
-	std::memset(pixels, transparentColor, numSprites * pitch * height);
+	const uint32_t numSprites = GetNumSpritesFromClxList(clxList.data());
+	uint32_t y = 0;
+	Size size { 0, 0 };
 	for (size_t i = 0; i < numSprites; ++i) {
 		// CLX sprite data is organized bottom to top.
 		// The start of the output is the first pixel of the last line of the sprite.
-		uint8_t *dstBegin = &pixels[(i + 1) * pitch * height - pitch];
-		BlitClxSprite(GetSpriteDataFromClxList(clxData, i),
-		    dstBegin, pitch);
+		const std::span<const uint8_t> clxSprite = GetSpriteDataFromClxList(clxList.data(), i);
+		const uint16_t height = GetClxSpriteHeight(clxSprite.data());
+		uint8_t *dstBegin = &pixels[(y + height - 1) * pitch + x];
+		BlitClxSprite(clxSprite, dstBegin, pitch);
+		y += height;
+		size.width = std::max<uint32_t>(size.width, GetClxSpriteWidth(clxSprite.data()));
+	}
+	size.height = y;
+	return size;
+}
+
+void ConvertClxToPixels(
+    std::span<const uint8_t> clxData,
+    uint8_t transparentColor,
+    uint8_t *pixels,
+    unsigned pitch,
+    Size *outDimensions)
+{
+	const uint32_t numLists = GetNumListsFromClxListOrSheetBuffer(clxData);
+	if (numLists == 0) {
+		const Size size = BlitClxSpriteList(
+		    clxData, transparentColor, pixels, pitch, /*x=*/0);
+		if (outDimensions != nullptr) {
+			*outDimensions = size;
+		}
+		return;
+	}
+	uint32_t height = 0;
+	uint32_t x = 0;
+	for (size_t i = 0; i < numLists; ++i) {
+		const Size size = BlitClxSpriteList(GetClxListFromClxSheetBuffer(clxData, i),
+		    transparentColor, pixels, pitch, x);
+		x += size.width;
+		height = std::max(height, size.height);
+	}
+	if (outDimensions != nullptr) {
+		*outDimensions = Size { x, height };
 	}
 }
 
 } // namespace
 
+Size MeasureVerticallyStackedClxListSize(std::span<const uint8_t> clxList)
+{
+	Size result { 0, 0 };
+	const size_t numSprites = GetNumSpritesFromClxList(clxList.data());
+	for (size_t i = 0; i < numSprites; ++i) {
+		const std::span<const uint8_t> clxSprite = GetSpriteDataFromClxList(clxList.data(), i);
+		result.width = std::max<uint32_t>(result.width, GetClxSpriteWidth(clxSprite.data()));
+		result.height += GetClxSpriteHeight(clxSprite.data());
+	}
+	return result;
+}
+
+Size MeasureHorizontallyStackedClxListOrSheetSize(std::span<const uint8_t> clxData)
+{
+	const uint32_t numLists = GetNumListsFromClxListOrSheetBuffer(clxData);
+	if (numLists == 0) {
+		return MeasureVerticallyStackedClxListSize(clxData);
+	}
+	Size result { 0, 0 };
+	for (size_t i = 0; i < numLists; ++i) {
+		const Size listSize = MeasureVerticallyStackedClxListSize(GetClxListFromClxSheetBuffer(clxData, i));
+		result.width += listSize.width;
+		result.height = std::max(result.height, listSize.height);
+	}
+	return result;
+}
+
 std::optional<IoError> Clx2Pixels(
     std::span<const uint8_t> clxData,
     uint8_t transparentColor,
     uint8_t *pixels,
-    unsigned pitch)
+    unsigned pitch,
+    Size *outDimensions)
 {
-	if (std::optional<IoError> error = CheckSupportedClx(clxData); error.has_value()) {
-		return error;
-	}
-	ConvertClxToPixels(clxData.data(), transparentColor, pixels, pitch);
+	ConvertClxToPixels(clxData, transparentColor, pixels, pitch, outDimensions);
 	return std::nullopt;
 }
 
@@ -134,19 +175,20 @@ std::optional<IoError> Clx2Pixels(
     std::span<const uint8_t> clxData,
     uint8_t transparentColor,
     std::vector<uint8_t> &pixels,
-    std::optional<unsigned> pitch)
+    std::optional<unsigned> pitch,
+    Size *outDimensions)
 {
-	if (std::optional<IoError> error = CheckSupportedClx(clxData); error.has_value()) {
-		return error;
-	}
-
-	const std::span<const uint8_t> firstSprite = GetSpriteDataFromClxList(clxData.data(), 0);
-	const uint16_t width = GetClxSpriteWidth(firstSprite.data());
-	const uint16_t height = GetClxSpriteHeight(firstSprite.data());
+	const Size measuredSize = MeasureHorizontallyStackedClxListOrSheetSize(clxData);
 	if (!pitch.has_value())
-		pitch = width;
-	pixels.resize(GetNumSpritesFromClxList(clxData.data()) * (*pitch) * height);
-	ConvertClxToPixels(clxData.data(), transparentColor, pixels.data(), *pitch);
+		pitch = measuredSize.width;
+	const size_t size = measuredSize.height * (*pitch);
+	if (pixels.size() < size) {
+		pixels.resize(size, transparentColor);
+		std::fill(pixels.begin(), pixels.end(), transparentColor);
+	} else {
+		std::fill(pixels.begin(), pixels.begin() + size, transparentColor);
+	}
+	ConvertClxToPixels(clxData, transparentColor, pixels.data(), *pitch, outDimensions);
 	return std::nullopt;
 }
 

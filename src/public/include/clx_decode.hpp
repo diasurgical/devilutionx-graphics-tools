@@ -21,6 +21,14 @@ namespace dvl_gfx {
 	return 0;
 }
 
+[[nodiscard]] constexpr std::span<const uint8_t> GetClxListFromClxSheetBuffer(
+    std::span<const uint8_t> clxSheet, size_t listIndex)
+{
+	const uint32_t beginOffset = LoadLE32(&clxSheet[4 * listIndex]);
+	const uint32_t endOffset = LoadLE32(&clxSheet[4 * (listIndex + 1)]);
+	return std::span(&clxSheet[beginOffset], endOffset - beginOffset);
+}
+
 [[nodiscard]] constexpr uint32_t GetNumSpritesFromClxList(const uint8_t *clxList)
 {
 	return LoadLE32(clxList);
