@@ -91,7 +91,7 @@ std::optional<IoError> Run(const Options &options)
 		outputDirFs = *options.outputDir;
 	for (const char *inputPath : options.inputPaths) {
 		std::filesystem::path inputPathFs { inputPath };
-		std::string outputPath;
+		std::filesystem::path outputPath;
 		if (outputDirFs.has_value()) {
 			outputPath = *outputDirFs / inputPathFs.filename().replace_extension("clx");
 		} else {
@@ -99,7 +99,7 @@ std::optional<IoError> Run(const Options &options)
 		}
 		uintmax_t inputFileSize;
 		uintmax_t outputFileSize;
-		if (std::optional<dvl_gfx::IoError> error = CelToClx(inputPath, outputPath.c_str(), options.widths, &inputFileSize, &outputFileSize);
+		if (std::optional<dvl_gfx::IoError> error = CelToClx(inputPath, outputPath.string().c_str(), options.widths, &inputFileSize, &outputFileSize);
 		    error.has_value()) {
 			error->message.append(": ").append(inputPath);
 			return error;
@@ -108,7 +108,7 @@ std::optional<IoError> Run(const Options &options)
 			std::filesystem::remove(inputPathFs);
 		}
 		if (!options.quiet) {
-			std::clog << inputPathFs.stem().c_str() << "\t" << inputFileSize << "\t"
+			std::clog << inputPathFs.stem().string() << "\t" << inputFileSize << "\t"
 			          << outputFileSize << std::endl;
 		}
 	}

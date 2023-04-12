@@ -133,14 +133,14 @@ std::optional<IoError> Run(const Options &options)
 		} else {
 			outputFilename = DefaultCombinedFilename(options);
 		}
-		std::string outputPath;
+		std::filesystem::path outputPath;
 		if (outputDirFs.has_value()) {
 			outputPath = *outputDirFs / outputFilename;
 		} else {
 			outputPath = std::filesystem::path(options.inputPaths[0]).parent_path() / outputFilename;
 		}
 		std::optional<dvl_gfx::IoError> error = CombineCl2AsClxSheet(
-		    options.inputPaths.data(), options.inputPaths.size(), outputPath.c_str(), options.widths);
+		    options.inputPaths.data(), options.inputPaths.size(), outputPath.string().c_str(), options.widths);
 		if (error.has_value())
 			return error;
 		return std::nullopt;
@@ -151,15 +151,15 @@ std::optional<IoError> Run(const Options &options)
 			if (options.outputFilename.has_value()) {
 				outputFilename = *options.outputFilename;
 			} else {
-				outputFilename = inputPathFs.filename().replace_extension("clx");
+				outputFilename = inputPathFs.filename().replace_extension("clx").string();
 			}
-			std::string outputPath;
+			std::filesystem::path outputPath;
 			if (outputDirFs.has_value()) {
 				outputPath = *outputDirFs / outputFilename;
 			} else {
 				outputPath = inputPathFs.parent_path() / outputFilename;
 			}
-			if (std::optional<dvl_gfx::IoError> error = Cl2ToClx(inputPath, outputPath.c_str(), options.widths);
+			if (std::optional<dvl_gfx::IoError> error = Cl2ToClx(inputPath, outputPath.string().c_str(), options.widths);
 			    error.has_value()) {
 				error->message.append(": ").append(inputPath);
 				return error;

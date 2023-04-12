@@ -152,7 +152,7 @@ std::optional<IoError> Run(const Options &options)
 	std::vector<uint8_t> pixels;
 	for (const char *inputPath : options.inputPaths) {
 		std::filesystem::path inputPathFs { inputPath };
-		std::string outputPath;
+		std::filesystem::path outputPath;
 		if (outputDirFs.has_value()) {
 			outputPath = *outputDirFs / inputPathFs.filename().replace_extension("pcx");
 		} else {
@@ -216,7 +216,7 @@ std::optional<IoError> Run(const Options &options)
 			if (ec)
 				return IoError { ec.message() };
 
-			std::clog << inputPathFs.stem().c_str() << "\t" << inputFileSize << "\t"
+			std::clog << inputPathFs.stem().string() << "\t" << inputFileSize << "\t"
 			          << outputFileSize << std::endl;
 		}
 	}
