@@ -8,12 +8,15 @@
 #include <memory>
 #include <vector>
 
+#include <clx_decode.hpp>
 #include <clx_encode.hpp>
 #include <dvl_gfx_endian.hpp>
 
 namespace dvl_gfx {
 
 namespace {
+
+constexpr size_t FrameHeaderSize = 10;
 
 constexpr bool IsCl2Opaque(uint8_t control)
 {
@@ -59,9 +62,128 @@ size_t CountCl2FramePixels(const uint8_t *src, const uint8_t *srcEnd)
 	return numPixels;
 }
 
+struct SkipSize {
+	int_fast16_t wholeLines;
+	int_fast16_t xOffset;
+};
+SkipSize GetSkipSize(int_fast16_t overrun, int_fast16_t srcWidth)
+{
+	SkipSize result;
+	result.wholeLines = overrun / srcWidth;
+	result.xOffset = overrun - srcWidth * result.wholeLines;
+	return result;
+}
+
 } // namespace
 
-std::optional<IoError> Cl2ToClx(uint8_t *data, size_t size,
+std::optional<IoError> Cl2ToClx(const uint8_t *data, size_t size,
+    const uint16_t *widths, size_t numWidths,
+    std::vector<uint8_t> &clxData)
+{
+	uint32_t numGroups = 1;
+	const uint32_t maybeNumFrames = LoadLE32(data);
+	const uint8_t *groupBegin = data;
+
+	// If it is a number of frames, then the last frame offset will be equal to the size of the file.
+	if (LoadLE32(&data[maybeNumFrames * 4 + 4]) != size) {
+		// maybeNumFrames is the address of the first group, right after
+		// the list of group offsets.
+		numGroups = maybeNumFrames / 4;
+		clxData.resize(maybeNumFrames);
+	}
+
+	// Transient buffer for a contiguous run of non-transparent pixels.
+	std::vector<uint8_t> pixels;
+	pixels.reserve(4096);
+
+	for (size_t group = 0; group < numGroups; ++group) {
+		uint32_t numFrames;
+		if (numGroups == 1) {
+			numFrames = maybeNumFrames;
+		} else {
+			groupBegin = &data[LoadLE32(&data[group * 4])];
+			numFrames = LoadLE32(groupBegin);
+			WriteLE32(&clxData[4 * group], clxData.size());
+		}
+
+		// CLX header: frame count, frame offset for each frame, file size
+		const size_t clxDataOffset = clxData.size();
+		clxData.resize(clxData.size() + 4 * (2 + static_cast<size_t>(numFrames)));
+		WriteLE32(&clxData[clxDataOffset], numFrames);
+
+		const uint8_t *frameEnd = &groupBegin[LoadLE32(&groupBegin[4])];
+		for (size_t frame = 1; frame <= numFrames; ++frame) {
+			WriteLE32(&clxData[clxDataOffset + 4 * frame],
+			    static_cast<uint32_t>(clxData.size() - clxDataOffset));
+
+			const uint8_t *frameBegin = frameEnd;
+			frameEnd = &groupBegin[LoadLE32(&groupBegin[4 * (frame + 1)])];
+
+			const uint16_t frameWidth = numWidths == 1 ? *widths : widths[frame - 1];
+
+			const size_t frameHeaderPos = clxData.size();
+			clxData.resize(clxData.size() + FrameHeaderSize);
+			WriteLE16(&clxData[frameHeaderPos], FrameHeaderSize);
+			WriteLE16(&clxData[frameHeaderPos + 2], frameWidth);
+
+			unsigned transparentRunWidth = 0;
+			int_fast16_t xOffset = 0;
+			size_t frameHeight = 0;
+			const uint8_t *src = frameBegin + FrameHeaderSize;
+			while (src != frameEnd) {
+				auto remainingWidth = static_cast<int_fast16_t>(frameWidth) - xOffset;
+				while (remainingWidth > 0) {
+					const ClxBlitCommand cmd = ClxGetBlitCommand(src);
+					switch (cmd.type) {
+					case ClxBlitType::Transparent:
+						if (!pixels.empty()) {
+							AppendClxPixelsOrFillRun(pixels.data(), pixels.size(), clxData);
+							pixels.clear();
+						}
+
+						transparentRunWidth += cmd.length;
+						break;
+					case ClxBlitType::Fill:
+					case ClxBlitType::Pixels:
+						AppendClxTransparentRun(transparentRunWidth, clxData);
+						transparentRunWidth = 0;
+
+						if (cmd.type == ClxBlitType::Fill) {
+							pixels.insert(pixels.end(), cmd.length, cmd.color);
+						} else { // ClxBlitType::Pixels
+							pixels.insert(pixels.end(), src + 1, cmd.srcEnd);
+						}
+						break;
+					}
+					src = cmd.srcEnd;
+					remainingWidth -= cmd.length;
+				}
+
+				++frameHeight;
+				if (remainingWidth < 0) {
+					const auto skipSize = GetSkipSize(-remainingWidth, static_cast<int_fast16_t>(frameWidth));
+					xOffset = skipSize.xOffset;
+					frameHeight += skipSize.wholeLines;
+				} else {
+					xOffset = 0;
+				}
+			}
+			if (!pixels.empty()) {
+				AppendClxPixelsOrFillRun(pixels.data(), pixels.size(), clxData);
+				pixels.clear();
+			}
+			AppendClxTransparentRun(transparentRunWidth, clxData);
+
+			WriteLE16(&clxData[frameHeaderPos + 4], frameHeight);
+			memset(&clxData[frameHeaderPos + 6], 0, 4);
+		}
+
+		WriteLE32(&clxData[clxDataOffset + 4 * (1 + static_cast<size_t>(numFrames))], static_cast<uint32_t>(clxData.size() - clxDataOffset));
+	}
+	return std::nullopt;
+}
+
+std::optional<IoError> Cl2ToClxNoReencode(uint8_t *data, size_t size,
     const uint16_t *widths, size_t numWidths)
 {
 	uint32_t numGroups = 1;
@@ -89,8 +211,7 @@ std::optional<IoError> Cl2ToClx(uint8_t *data, size_t size,
 			uint8_t *frameBegin = frameEnd;
 			frameEnd = &groupBegin[LoadLE32(&groupBegin[4 * (frame + 1)])];
 
-			constexpr size_t Cl2FrameHeaderSize = 10;
-			const size_t numPixels = CountCl2FramePixels(frameBegin + Cl2FrameHeaderSize, frameEnd);
+			const size_t numPixels = CountCl2FramePixels(frameBegin + FrameHeaderSize, frameEnd);
 
 			const uint16_t frameWidth = numWidths == 1 ? *widths : widths[frame - 1];
 			const uint16_t frameHeight = numPixels / frameWidth;
@@ -103,7 +224,7 @@ std::optional<IoError> Cl2ToClx(uint8_t *data, size_t size,
 }
 
 std::optional<IoError> Cl2ToClx(const char *inputPath, const char *outputPath,
-    const uint16_t *widths, size_t numWidths)
+    const uint16_t *widths, size_t numWidths, bool reencode)
 {
 	std::error_code ec;
 	const uintmax_t size = std::filesystem::file_size(inputPath, ec);
@@ -130,11 +251,19 @@ std::optional<IoError> Cl2ToClx(const char *inputPath, const char *outputPath,
 		return IoError { std::string("Failed to open output file: ")
 			                 .append(std::strerror(errno)) };
 
-	std::optional<IoError> result = Cl2ToClx(ownedData.get(), size, widths, numWidths);
-	if (result.has_value())
-		return result;
+	if (reencode) {
+		std::vector<uint8_t> out;
+		std::optional<IoError> result = Cl2ToClx(ownedData.get(), size, widths, numWidths, out);
+		if (result.has_value())
+			return result;
+		output.write(reinterpret_cast<const char *>(out.data()), static_cast<std::streamsize>(out.size()));
+	} else {
+		std::optional<IoError> result = Cl2ToClxNoReencode(ownedData.get(), size, widths, numWidths);
+		if (result.has_value())
+			return result;
+		output.write(reinterpret_cast<const char *>(ownedData.get()), static_cast<std::streamsize>(size));
+	}
 
-	output.write(reinterpret_cast<const char *>(ownedData.get()), static_cast<std::streamsize>(size));
 	output.close();
 	if (output.fail())
 		return IoError { std::string("Failed to write to output file: ")
@@ -144,7 +273,7 @@ std::optional<IoError> Cl2ToClx(const char *inputPath, const char *outputPath,
 
 std::optional<IoError> CombineCl2AsClxSheet(
     const char *const *inputPaths, size_t numFiles, const char *outputPath,
-    const std::vector<uint16_t> &widths)
+    const std::vector<uint16_t> &widths, bool reencode)
 {
 	size_t accumulatedSize = ClxSheetHeaderSize(numFiles);
 	std::vector<size_t> offsets;
@@ -177,19 +306,34 @@ std::optional<IoError> CombineCl2AsClxSheet(
 		}
 		input.close();
 	}
-	if (std::optional<IoError> error = Cl2ToClx(
-	        ownedData.get(), accumulatedSize, widths.data(), widths.size());
-	    error.has_value()) {
-		return error;
-	}
 
 	std::ofstream output;
-	output.open(outputPath, std::ios::out | std::ios::binary);
-	if (output.fail())
-		return IoError { std::string("Failed to open output file: ")
-			                 .append(std::strerror(errno)) };
-
-	output.write(reinterpret_cast<const char *>(ownedData.get()), static_cast<std::streamsize>(accumulatedSize));
+	if (reencode) {
+		std::vector<uint8_t> out;
+		if (std::optional<IoError> error = Cl2ToClx(
+		        ownedData.get(), accumulatedSize, widths.data(), widths.size(), out);
+		    error.has_value()) {
+			return error;
+		}
+		output.open(outputPath, std::ios::out | std::ios::binary);
+		if (output.fail()) {
+			return IoError { std::string("Failed to open output file: ")
+				                 .append(std::strerror(errno)) };
+		}
+		output.write(reinterpret_cast<const char *>(out.data()), static_cast<std::streamsize>(out.size()));
+	} else {
+		if (std::optional<IoError> error = Cl2ToClxNoReencode(
+		        ownedData.get(), accumulatedSize, widths.data(), widths.size());
+		    error.has_value()) {
+			return error;
+		}
+		output.open(outputPath, std::ios::out | std::ios::binary);
+		if (output.fail()) {
+			return IoError { std::string("Failed to open output file: ")
+				                 .append(std::strerror(errno)) };
+		}
+		output.write(reinterpret_cast<const char *>(ownedData.get()), static_cast<std::streamsize>(accumulatedSize));
+	}
 	output.close();
 	if (output.fail())
 		return IoError { std::string("Failed to write to output file: ")

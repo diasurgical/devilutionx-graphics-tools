@@ -27,6 +27,7 @@ Options:
                                the trailing digits.
   --width <arg>[,<arg>...]     CL2 sprite frame width(s), comma-separated.
   --combine                    Combine multiple CL2 files into a single CLX sheet.
+  --no-reencode                Do not reencode graphics data with the more optimal DevilutionX encoder.
   --remove                     Remove the input files.
   -q, --quiet                  Do not log anything.
 )";
@@ -38,6 +39,7 @@ struct Options {
 	std::vector<uint16_t> widths;
 	bool combine = false;
 	bool remove = false;
+	bool reencode = true;
 	bool quiet = false;
 };
 
@@ -77,6 +79,8 @@ tl::expected<Options, ArgumentError> ParseArguments(int argc, char *argv[])
 			options.widths = *std::move(value);
 		} else if (arg == "--combine") {
 			options.combine = true;
+		} else if (arg == "--no-reencode") {
+			options.reencode = false;
 		} else if (arg == "--remove") {
 			options.remove = true;
 		} else if (arg == "-q" || arg == "--quiet") {
@@ -140,7 +144,8 @@ std::optional<IoError> Run(const Options &options)
 			outputPath = std::filesystem::path(options.inputPaths[0]).parent_path() / outputFilename;
 		}
 		std::optional<dvl_gfx::IoError> error = CombineCl2AsClxSheet(
-		    options.inputPaths.data(), options.inputPaths.size(), outputPath.string().c_str(), options.widths);
+		    options.inputPaths.data(), options.inputPaths.size(),
+		    outputPath.string().c_str(), options.widths, options.reencode);
 		if (error.has_value())
 			return error;
 		return std::nullopt;
@@ -159,7 +164,9 @@ std::optional<IoError> Run(const Options &options)
 			} else {
 				outputPath = inputPathFs.parent_path() / outputFilename;
 			}
-			if (std::optional<dvl_gfx::IoError> error = Cl2ToClx(inputPath, outputPath.string().c_str(), options.widths);
+			if (std::optional<dvl_gfx::IoError> error = Cl2ToClx(
+			        inputPath, outputPath.string().c_str(),
+			        options.widths, options.reencode);
 			    error.has_value()) {
 				error->message.append(": ").append(inputPath);
 				return error;

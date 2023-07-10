@@ -62,16 +62,16 @@ std::optional<IoError> CelToClx(const uint8_t *data, size_t size,
 			WriteLE32(&clxData[4 * group], clxData.size());
 		}
 
-		// CL2 header: frame count, frame offset for each frame, file size
-		const size_t cl2DataOffset = clxData.size();
+		// CLX header: frame count, frame offset for each frame, file size
+		const size_t clxDataOffset = clxData.size();
 		clxData.resize(clxData.size() + 4 * (2 + static_cast<size_t>(numFrames)));
-		WriteLE32(&clxData[cl2DataOffset], numFrames);
+		WriteLE32(&clxData[clxDataOffset], numFrames);
 
 		const uint8_t *srcEnd = &data[LoadLE32(&data[4])];
 		for (size_t frame = 1; frame <= numFrames; ++frame) {
 			const uint8_t *src = srcEnd;
 			srcEnd = &data[LoadLE32(&data[4 * (frame + 1)])];
-			WriteLE32(&clxData[cl2DataOffset + 4 * frame], static_cast<uint32_t>(clxData.size() - cl2DataOffset));
+			WriteLE32(&clxData[clxDataOffset + 4 * frame], static_cast<uint32_t>(clxData.size() - clxDataOffset));
 
 			// Skip CEL frame header if there is one.
 			constexpr size_t CelFrameHeaderSize = 10;
@@ -107,12 +107,12 @@ std::optional<IoError> CelToClx(const uint8_t *data, size_t size,
 				}
 				++frameHeight;
 			}
+			AppendClxTransparentRun(transparentRunWidth, clxData);
 			WriteLE16(&clxData[frameHeaderPos + 4], frameHeight);
 			memset(&clxData[frameHeaderPos + 6], 0, 4);
-			AppendClxTransparentRun(transparentRunWidth, clxData);
 		}
 
-		WriteLE32(&clxData[cl2DataOffset + 4 * (1 + static_cast<size_t>(numFrames))], static_cast<uint32_t>(clxData.size() - cl2DataOffset));
+		WriteLE32(&clxData[clxDataOffset + 4 * (1 + static_cast<size_t>(numFrames))], static_cast<uint32_t>(clxData.size() - clxDataOffset));
 		data = srcEnd;
 	}
 	return std::nullopt;
