@@ -100,7 +100,7 @@ add_library(
 )
 add_library(DvlGfx::cl22clx ALIAS cl22clx)
 target_link_libraries(cl22clx PUBLIC common)
-target_link_libraries(cel2clx PRIVATE clx_encode)
+target_link_libraries(cl22clx PRIVATE clx_encode)
 set_target_properties(cl22clx PROPERTIES PUBLIC_HEADER "src/public/include/cl22clx.hpp")
 target_include_directories(cl22clx PRIVATE src/internal)
 
