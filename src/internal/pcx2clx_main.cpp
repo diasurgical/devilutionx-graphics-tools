@@ -20,12 +20,13 @@ constexpr char KHelp[] = R"(Usage: pcx2clx [options] files...
 Converts PCX sprite(s) to a CLX file.
 
 Options:
-  --output-dir <arg>           Output directory. Default: input file directory.
-  --transparent-color <arg>    Transparent color index. Default: none.
-  --num-sprites <arg>          The number of vertically-stacked sprites. Default: 1.
-  --export-palette             Export the palette as a .pal file.
-  --remove                     Remove the input files.
-  -q, --quiet                  Do not log anything.
+  --output-dir <arg>              Output directory. Default: input file directory.
+  --transparent-color <arg>       Transparent color index. Default: none.
+  --num-sprites <arg>             The number of vertically-stacked sprites. Default: 1.
+  --crop-widths <arg>[,<arg>...]  Crop sprites to the given width(s) by removing the right side of the sprite. Default: none.
+  --export-palette                Export the palette as a .pal file.
+  --remove                        Remove the input files.
+  -q, --quiet                     Do not log anything.
 )";
 
 struct Options {
@@ -33,6 +34,7 @@ struct Options {
 	std::optional<std::string_view> outputDir;
 	uint16_t numSprites = 1;
 	std::optional<uint8_t> transparentColor;
+	std::vector<uint16_t> cropWidths;
 	bool exportPalette = false;
 	bool remove = false;
 	bool quiet = false;
@@ -72,6 +74,11 @@ tl::expected<Options, ArgumentError> ParseArguments(int argc, char *argv[])
 			if (!value.has_value())
 				return tl::unexpected { std::move(value).error() };
 			options.transparentColor = *value;
+		} else if (arg == "--crop-widths") {
+			tl::expected<std::vector<uint16_t>, ArgumentError> value = ParseIntListArgument<uint16_t>(state);
+			if (!value.has_value())
+				return tl::unexpected { std::move(value).error() };
+			options.cropWidths = *std::move(value);
 		} else if (arg == "--export-palette") {
 			options.exportPalette = true;
 		} else if (arg == "--remove") {
@@ -111,7 +118,7 @@ std::optional<IoError> Run(const Options &options)
 		uintmax_t inputFileSize;
 		uintmax_t outputFileSize;
 		if (std::optional<dvl_gfx::IoError> error = PcxToClx(inputPath, outputPath.string().c_str(), options.numSprites,
-		        options.transparentColor, options.exportPalette, &inputFileSize, &outputFileSize);
+		        options.transparentColor, options.cropWidths, options.exportPalette, &inputFileSize, &outputFileSize);
 		    error.has_value()) {
 			error->message.append(": ").append(inputPath);
 			return error;
