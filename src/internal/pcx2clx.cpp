@@ -19,6 +19,7 @@ namespace dvl_gfx {
 std::optional<IoError> PcxToClx(const uint8_t *data, size_t size,
     int numFramesOrFrameHeight,
     std::optional<uint8_t> transparentColor,
+    const std::vector<uint16_t> &cropWidths,
     std::vector<uint8_t> &clxData,
     uint8_t *paletteData)
 {
@@ -68,8 +69,12 @@ std::optional<IoError> PcxToClx(const uint8_t *data, size_t size,
 		clxData.resize(clxData.size() + FrameHeaderSize);
 
 		// Frame header:
+		const uint16_t frameWidth = cropWidths.empty()
+		    ? width
+		    : cropWidths[std::min<size_t>(cropWidths.size(), frame) - 1];
+
 		WriteLE16(&clxData[frameHeaderPos], FrameHeaderSize);
-		WriteLE16(&clxData[frameHeaderPos + 2], static_cast<uint16_t>(width));
+		WriteLE16(&clxData[frameHeaderPos + 2], static_cast<uint16_t>(frameWidth));
 		WriteLE16(&clxData[frameHeaderPos + 4], static_cast<uint16_t>(frameHeight));
 		memset(&clxData[frameHeaderPos + 6], 0, 4);
 
@@ -99,7 +104,7 @@ std::optional<IoError> PcxToClx(const uint8_t *data, size_t size,
 			const uint8_t *src = &frameBuffer[(frameHeight - (line + 1)) * width];
 			if (transparentColor) {
 				unsigned solidRunWidth = 0;
-				for (const uint8_t *srcEnd = src + width; src != srcEnd; ++src) {
+				for (const uint8_t *srcEnd = src + frameWidth; src != srcEnd; ++src) {
 					if (*src == *transparentColor) {
 						if (solidRunWidth != 0) {
 							AppendClxPixelsOrFillRun(
@@ -145,6 +150,7 @@ std::optional<IoError> PcxToClx(const uint8_t *data, size_t size,
 std::optional<IoError> PcxToClx(const char *inputPath, const char *outputPath,
     int numFramesOrFrameHeight,
     std::optional<uint8_t> transparentColor,
+    const std::vector<uint16_t> &cropWidths,
     bool exportPalette,
     uintmax_t *inputFileSize,
     uintmax_t *outputFileSize)
@@ -173,8 +179,9 @@ std::optional<IoError> PcxToClx(const char *inputPath, const char *outputPath,
 
 	std::vector<uint8_t> clxData;
 	std::array<uint8_t, 256 * 3> paletteData;
-	if (const std::optional<IoError> error = PcxToClx(fileBuffer.get(), pixelDataSize, numFramesOrFrameHeight, transparentColor,
-	        clxData, exportPalette ? paletteData.data() : nullptr);
+	if (const std::optional<IoError> error = PcxToClx(
+	        fileBuffer.get(), pixelDataSize, numFramesOrFrameHeight, transparentColor,
+	        cropWidths, clxData, exportPalette ? paletteData.data() : nullptr);
 	    error.has_value()) {
 		return error;
 	}
