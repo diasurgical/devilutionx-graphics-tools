@@ -51,18 +51,21 @@ file(GENERATE
   CONTENT "#include \"dvl_gfx_embedded_palettes.h\"
 ${_output_c}
 ")
-add_library(embedded_palettes OBJECT
+add_library(dvl_gfx_embedded_palettes
   ${CMAKE_CURRENT_BINARY_DIR}/dvl_gfx_embedded_palettes.c)
-target_include_directories(embedded_palettes PUBLIC
-  ${CMAKE_CURRENT_BINARY_DIR})
+add_library(DvlGfx::embedded_palettes ALIAS dvl_gfx_embedded_palettes)
+target_include_directories(dvl_gfx_embedded_palettes INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+  $<INSTALL_INTERFACE:include>)
+set_target_properties(dvl_gfx_embedded_palettes PROPERTIES PUBLIC_HEADER "${CMAKE_CURRENT_BINARY_DIR}/dvl_gfx_embedded_palettes.h")
 
 add_library(common INTERFACE)
 target_include_directories(common INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/public/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third_party/tl>
   $<INSTALL_INTERFACE:include>)
-set_target_properties(common PROPERTIES PUBLIC_HEADER "src/public/include/dvl_gfx_common.hpp")
-set_target_properties(common PROPERTIES PUBLIC_HEADER "src/public/include/dvl_gfx_endian.hpp")
+set_target_properties(common PROPERTIES PUBLIC_HEADER
+  "src/public/include/dvl_gfx_common.hpp;src/public/include/dvl_gfx_endian.hpp")
 
 add_library(clx_decode INTERFACE)
 add_library(DvlGfx::clx_decode ALIAS clx_decode)
@@ -117,7 +120,7 @@ target_include_directories(pcx_encode PRIVATE src/internal)
 
 add_executable(clx2pcx_main src/internal/clx2pcx_main.cpp)
 set_property(TARGET clx2pcx_main PROPERTY RUNTIME_OUTPUT_NAME clx2pcx)
-target_link_libraries(clx2pcx_main PRIVATE clx2pixels pcx_encode embedded_palettes)
+target_link_libraries(clx2pcx_main PRIVATE clx2pixels pcx_encode dvl_gfx_embedded_palettes)
 target_include_directories(clx2pcx_main PRIVATE src/internal)
 
 add_library(
@@ -170,7 +173,9 @@ endforeach()
 
 if(ENABLE_INSTALL)
   install(
-    TARGETS cel2clx cl22clx pcx2clx pixels2clx clx2pixels clx_encode clx_decode common EXPORT DvlGfxTargets
+    TARGETS cel2clx cl22clx pcx2clx pixels2clx clx2pixels clx_encode clx_decode dvl_gfx_embedded_palettes common
+    EXPORT DvlGfxTargets
+    PUBLIC_HEADER
     CONFIGURATIONS Release
     COMPONENT Development
   )
