@@ -16,8 +16,6 @@ namespace dvl_gfx {
 
 namespace {
 
-constexpr size_t FrameHeaderSize = 10;
-
 constexpr bool IsCl2Opaque(uint8_t control)
 {
 	constexpr uint8_t Cl2OpaqueMin = 0x80;
@@ -122,14 +120,14 @@ std::optional<IoError> Cl2ToClx(const uint8_t *data, size_t size,
 			const uint16_t frameWidth = numWidths == 1 ? *widths : widths[frame - 1];
 
 			const size_t frameHeaderPos = clxData.size();
-			clxData.resize(clxData.size() + FrameHeaderSize);
-			WriteLE16(&clxData[frameHeaderPos], FrameHeaderSize);
+			clxData.resize(clxData.size() + ClxFrameHeaderSize);
+			WriteLE16(&clxData[frameHeaderPos], ClxFrameHeaderSize);
 			WriteLE16(&clxData[frameHeaderPos + 2], frameWidth);
 
 			unsigned transparentRunWidth = 0;
 			int_fast16_t xOffset = 0;
 			size_t frameHeight = 0;
-			const uint8_t *src = frameBegin + FrameHeaderSize;
+			const uint8_t *src = frameBegin + LoadLE16(frameBegin);
 			while (src != frameEnd) {
 				auto remainingWidth = static_cast<int_fast16_t>(frameWidth) - xOffset;
 				while (remainingWidth > 0) {
@@ -175,7 +173,6 @@ std::optional<IoError> Cl2ToClx(const uint8_t *data, size_t size,
 			AppendClxTransparentRun(transparentRunWidth, clxData);
 
 			WriteLE16(&clxData[frameHeaderPos + 4], frameHeight);
-			memset(&clxData[frameHeaderPos + 6], 0, 4);
 		}
 
 		WriteLE32(&clxData[clxDataOffset + 4 * (1 + static_cast<size_t>(numFrames))], static_cast<uint32_t>(clxData.size() - clxDataOffset));
@@ -211,7 +208,7 @@ std::optional<IoError> Cl2ToClxNoReencode(uint8_t *data, size_t size,
 			uint8_t *frameBegin = frameEnd;
 			frameEnd = &groupBegin[LoadLE32(&groupBegin[4 * (frame + 1)])];
 
-			const size_t numPixels = CountCl2FramePixels(frameBegin + FrameHeaderSize, frameEnd);
+			const size_t numPixels = CountCl2FramePixels(frameBegin + LoadLE16(frameBegin), frameEnd);
 
 			const uint16_t frameWidth = numWidths == 1 ? *widths : widths[frame - 1];
 			const uint16_t frameHeight = numPixels / frameWidth;

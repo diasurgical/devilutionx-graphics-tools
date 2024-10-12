@@ -3,6 +3,7 @@
 #include <array>
 #include <cassert>
 #include <cerrno>
+#include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -65,18 +66,16 @@ std::optional<IoError> PcxToClx(const uint8_t *data, size_t size,
 		// 3. Height
 		// 4..5. Unused (0)
 		const size_t frameHeaderPos = clxData.size();
-		constexpr size_t FrameHeaderSize = 10;
-		clxData.resize(clxData.size() + FrameHeaderSize);
+		clxData.resize(clxData.size() + ClxFrameHeaderSize);
 
 		// Frame header:
 		const uint16_t frameWidth = cropWidths.empty()
-		    ? width
+		    ? static_cast<uint16_t>(width)
 		    : cropWidths[std::min<size_t>(cropWidths.size(), frame) - 1];
 
-		WriteLE16(&clxData[frameHeaderPos], FrameHeaderSize);
+		WriteLE16(&clxData[frameHeaderPos], ClxFrameHeaderSize);
 		WriteLE16(&clxData[frameHeaderPos + 2], static_cast<uint16_t>(frameWidth));
 		WriteLE16(&clxData[frameHeaderPos + 4], static_cast<uint16_t>(frameHeight));
-		memset(&clxData[frameHeaderPos + 6], 0, 4);
 
 		for (unsigned j = 0; j < frameHeight; ++j) {
 			uint8_t *buffer = &frameBuffer[static_cast<size_t>(j) * width];

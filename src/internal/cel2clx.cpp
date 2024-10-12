@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 
+#include <dvl_gfx_common.hpp>
 #include <dvl_gfx_endian.hpp>
 
 #include "clx_encode.hpp"
@@ -83,9 +84,8 @@ std::optional<IoError> CelToClx(const uint8_t *data, size_t size,
 
 			// CLX frame header.
 			const size_t frameHeaderPos = clxData.size();
-			constexpr size_t FrameHeaderSize = 10;
-			clxData.resize(clxData.size() + FrameHeaderSize);
-			WriteLE16(&clxData[frameHeaderPos], FrameHeaderSize);
+			clxData.resize(clxData.size() + ClxFrameHeaderSize);
+			WriteLE16(&clxData[frameHeaderPos], ClxFrameHeaderSize);
 			WriteLE16(&clxData[frameHeaderPos + 2], frameWidth);
 
 			unsigned transparentRunWidth = 0;
@@ -109,7 +109,6 @@ std::optional<IoError> CelToClx(const uint8_t *data, size_t size,
 			}
 			AppendClxTransparentRun(transparentRunWidth, clxData);
 			WriteLE16(&clxData[frameHeaderPos + 4], frameHeight);
-			memset(&clxData[frameHeaderPos + 6], 0, 4);
 		}
 
 		WriteLE32(&clxData[clxDataOffset + 4 * (1 + static_cast<size_t>(numFrames))], static_cast<uint32_t>(clxData.size() - clxDataOffset));
