@@ -58,7 +58,7 @@ namespace dvl_gfx {
 
 [[nodiscard]] constexpr const uint8_t *GetClxSpritePixelsData(const uint8_t *clxSprite)
 {
-	return &clxSprite[10];
+	return &clxSprite[LoadLE16(&clxSprite[0])];
 }
 
 [[nodiscard]] constexpr bool IsClxOpaque(uint8_t control)
