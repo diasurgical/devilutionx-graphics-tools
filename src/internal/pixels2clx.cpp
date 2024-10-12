@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include <dvl_gfx_common.hpp>
 #include <dvl_gfx_endian.hpp>
 
 #include "clx_encode.hpp"
@@ -33,14 +34,12 @@ void Pixels2Clx(
 		// 3. Height
 		// 4..5. Unused (0)
 		const size_t frameHeaderPos = clxData.size();
-		constexpr size_t FrameHeaderSize = 10;
-		clxData.resize(clxData.size() + FrameHeaderSize);
+		clxData.resize(clxData.size() + ClxFrameHeaderSize);
 
 		// Frame header:
-		WriteLE16(&clxData[frameHeaderPos], FrameHeaderSize);
+		WriteLE16(&clxData[frameHeaderPos], ClxFrameHeaderSize);
 		WriteLE16(&clxData[frameHeaderPos + 2], static_cast<uint16_t>(width));
 		WriteLE16(&clxData[frameHeaderPos + 4], static_cast<uint16_t>(frameHeight));
-		memset(&clxData[frameHeaderPos + 6], 0, 4);
 
 		const uint8_t *frameBuffer = &pixels[static_cast<size_t>((frame - 1) * pitch * frameHeight)];
 		unsigned transparentRunWidth = 0;
